@@ -63,7 +63,7 @@ add_executable(${PROJECT_NAME} src/main.cpp ${CORE_SOURCES})
 target_include_directories(${PROJECT_NAME} PRIVATE include)
 
 # link libraries to main program
-target_link_libraries(${PROJECT_NAME} PUBLIC)
+# target_link_libraries(${PROJECT_NAME} PUBLIC)
 # target_link_libraries(${PROJECT_NAME} PUBLIC raylib raylib_cpp RLtools::RLtools)
 
 # RL TRAINER
