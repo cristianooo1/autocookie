@@ -5,6 +5,36 @@ project(autocookie)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
+# dear ImGUI
+# exclude tests/examples
+set(GLFW_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
+set(GLFW_BUILD_TESTS OFF CACHE BOOL "" FORCE)
+set(GLFW_BUILD_DOCS OFF CACHE BOOL "" FORCE)
+
+find_package(glfw QUIET)
+if (NOT glfw_FOUND)
+    include(FetchContent)
+    FetchContent_Declare(
+        glfw
+        GIT_REPOSITORY https://github.com/glfw/glfw.git
+        GIT_TAG master
+    )
+    FetchContent_MakeAvailable(glfw)
+endif()
+
+# dear ImGUI
+find_package(imgui QUIET)
+if (NOT imgui_FOUND)
+    include(FetchContent)
+    FetchContent_Declare(
+        imgui
+        GIT_REPOSITORY https://github.com/ocornut/imgui
+        GIT_TAG master
+    )
+    FetchContent_MakeAvailable(imgui)
+endif()
+
+
 # # raylib
 # find_package(raylib QUIET)
 # if (NOT raylib_FOUND)
@@ -46,6 +76,28 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 # endif()
 
 
+
+
+add_library(imgui STATIC
+    ${imgui_SOURCE_DIR}/imgui.cpp
+    ${imgui_SOURCE_DIR}/imgui_demo.cpp
+    ${imgui_SOURCE_DIR}/imgui_draw.cpp
+    ${imgui_SOURCE_DIR}/imgui_tables.cpp
+    ${imgui_SOURCE_DIR}/imgui_widgets.cpp
+
+    # backends: GLFW + OpenGL3
+    ${imgui_SOURCE_DIR}/backends/imgui_impl_glfw.cpp
+    ${imgui_SOURCE_DIR}/backends/imgui_impl_opengl3.cpp
+)
+
+target_include_directories(imgui PUBLIC
+    ${imgui_SOURCE_DIR}
+    ${imgui_SOURCE_DIR}/backends
+)
+target_link_libraries(imgui PRIVATE glfw)
+
+find_package(OpenGL REQUIRED)
+
 set(CORE_SOURCES 
     # src/car.cpp
     # src/game.cpp
@@ -62,8 +114,9 @@ add_executable(${PROJECT_NAME} src/main.cpp ${CORE_SOURCES})
 # where CMake looks for .hpp files
 target_include_directories(${PROJECT_NAME} PRIVATE include)
 
+
 # link libraries to main program
-# target_link_libraries(${PROJECT_NAME} PUBLIC)
+target_link_libraries(${PROJECT_NAME} PRIVATE imgui glfw OpenGL::GL)
 # target_link_libraries(${PROJECT_NAME} PUBLIC raylib raylib_cpp RLtools::RLtools)
 
 # RL TRAINER
