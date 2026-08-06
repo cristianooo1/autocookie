@@ -1,0 +1,19 @@
+[project]
+name = "autocookie"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+authors = [
+    { name = "cristianoo", email = "cristi_iorga02@yahoo.com" }
+]
+requires-python = ">=3.12"
+dependencies = [
+    "gymnasium[atari,classic-control]>=1.3.0",
+]
+
+[project.scripts]
+autocookie = "autocookie:main"
+
+[build-system]
+requires = ["uv_build>=0.12.2,<0.13.0"]
+build-backend = "uv_build"
