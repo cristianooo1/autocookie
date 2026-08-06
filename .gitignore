@@ -3,3 +3,4 @@ build/
 *.ini
 *.pyi
 *.so
+__pycache__

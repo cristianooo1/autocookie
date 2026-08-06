@@ -1,5 +1,6 @@
 #include <nanobind/nanobind.h>
 #include <nanobind/stl/array.h>
+#include <nanobind/stl/tuple.h>
 
 #include "env.hpp"
 #include "config.hpp"
@@ -44,5 +45,6 @@ NB_MODULE(autocookie, m)
     nanobind::class_<Env>(m, "Env")
         .def(nanobind::init<>())
         .def("step", &Env::step)
-        .def("reset", &Env::reset);
+        .def("reset", &Env::reset)
+        .def("queryState", &Env::queryState);
 }
