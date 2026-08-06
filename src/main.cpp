@@ -175,11 +175,17 @@ struct Observation
     double current_cookies{};
     double all_time_cookies{};
     std::array<int, Config::TOTAL_NR_BUILDINGS_AVAILABLE> buildings_owned{};
-    std::array<BuildingDefinition, Config::TOTAL_NR_BUILDINGS_AVAILABLE> buildings_definitions{};
     double cps{};
 };
 
-struct Engine
+struct StepResult
+{
+    Observation obs;
+    double reward;
+    bool done;
+};
+
+struct Env
 {
     const double dt{1.0};
     GameState state;
@@ -187,16 +193,23 @@ struct Engine
     BuildingSystem buildingSystem;
 
     double prev_progress_cookies{0.0};
+    double prev_progress_cps{0.0};
 
-    void step(const Action &action)
+    StepResult step(const Action &action)
     {
         buildingSystem.update(state, action);
         state.time += dt;
         // events.update(state, dt);
         economy.update(state, dt);
+
+        return StepResult{
+            .obs = get_observation(),
+            .reward = get_reward(),
+            .done = is_terminal(),
+        };
     }
 
-    void reset()
+    Observation reset()
     {
         state.alltime_cookies = 0.0;
         state.current_cookies = 0.0;
@@ -208,6 +221,14 @@ struct Engine
         }
 
         prev_progress_cookies = 0.0;
+        prev_progress_cps = 0.0;
+
+        return Observation{
+            .current_cookies = state.current_cookies,
+            .all_time_cookies = state.alltime_cookies,
+            .buildings_owned = state.buildingsOwned,
+            .cps = state.cps,
+        };
     }
 
     Observation get_observation()
@@ -216,15 +237,15 @@ struct Engine
             .current_cookies = state.current_cookies,
             .all_time_cookies = state.alltime_cookies,
             .buildings_owned = state.buildingsOwned,
-            .buildings_definitions = Config::buildingsDefinitions,
             .cps = state.cps,
         };
     }
 
     double get_reward()
     {
-        double reward = state.current_cookies - prev_progress_cookies;
+        double reward = (state.current_cookies - prev_progress_cookies) + (state.cps - prev_progress_cps) * 5;
         prev_progress_cookies = state.current_cookies;
+        prev_progress_cps = state.cps;
         return reward;
     }
 
@@ -269,7 +290,7 @@ void key_callback(GLFWwindow *window, int key, int scancode, int action, int mod
 
 int main(int argc, char *argv[])
 {
-    Engine engine;
+    Env env;
     bool interactive_mode = false;
 
     Action clickCookie{.type = ActionType::ClickCookie};
@@ -280,11 +301,11 @@ int main(int argc, char *argv[])
 
     if (interactive_mode != 0)
     {
-        engine.step(buyCursor);
-        engine.step(buyFarm);
-        engine.step(clickCookie);
+        env.step(buyCursor);
+        env.step(buyFarm);
+        env.step(clickCookie);
 
-        const auto [currCookiess, alltimeCookiess, CPSs, time_from_startt, cursorss, grandmass, farmss] = engine.queryState();
+        const auto [currCookiess, alltimeCookiess, CPSs, time_from_startt, cursorss, grandmass, farmss] = env.queryState();
 
         std::cout << "current Cookies = " << currCookiess << "\n";
         std::cout << "alltime Cookies = " << alltimeCookiess << "\n";
@@ -361,45 +382,45 @@ int main(int argc, char *argv[])
 
                 if (ImGui::Button("COOKIE"))
                 {
-                    engine.step(clickCookie);
+                    env.step(clickCookie);
                 }
 
                 ImGui::SameLine();
 
                 if (ImGui::Button("buy cursor"))
                 {
-                    engine.step(buyCursor);
+                    env.step(buyCursor);
                 }
 
                 ImGui::SameLine();
 
                 if (ImGui::Button("buy grandma"))
                 {
-                    engine.step(buyGrandma);
+                    env.step(buyGrandma);
                 }
 
                 ImGui::SameLine();
 
                 if (ImGui::Button("buy farm"))
                 {
-                    engine.step(buyFarm);
+                    env.step(buyFarm);
                 }
 
                 ImGui::SameLine();
 
                 if (ImGui::Button("wait"))
                 {
-                    engine.step(justWait);
+                    env.step(justWait);
                 }
 
                 ImGui::SameLine();
 
                 if (ImGui::Button("reset"))
                 {
-                    engine.reset();
+                    env.reset();
                 }
 
-                const auto [currCookiess, alltimeCookiess, CPSs, time_from_startt, cursorss, grandmass, farmss] = engine.queryState();
+                const auto [currCookiess, alltimeCookiess, CPSs, time_from_startt, cursorss, grandmass, farmss] = env.queryState();
 
                 ImGui::Text("current Cookies = %.3f", currCookiess);
 
