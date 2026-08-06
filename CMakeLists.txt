@@ -78,9 +78,7 @@ target_include_directories(imgui PUBLIC
 target_link_libraries(imgui PRIVATE glfw OpenGL::GL)
 
 set(CORE_SOURCES 
-    src/dummy.cpp   
-    # src/engine.cpp
-    # src/gamestate.cpp
+    src/env.cpp   
 )
 
 # CORE
@@ -95,6 +93,17 @@ target_link_libraries(${PROJECT_NAME}_main PRIVATE ${PROJECT_NAME}_core)
 # NANOBIND
 nanobind_add_module(${PROJECT_NAME} src/bindings.cpp)
 target_link_libraries(${PROJECT_NAME} PRIVATE ${PROJECT_NAME}_core)
+set_target_properties(${PROJECT_NAME} PROPERTIES 
+    LIBRARY_OUTPUT_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+)
+nanobind_add_stub(
+    ${PROJECT_NAME}_stub
+    MODULE ${PROJECT_NAME}
+    OUTPUT ${CMAKE_CURRENT_SOURCE_DIR}/${PROJECT_NAME}.pyi
+    PYTHON_PATH ${CMAKE_CURRENT_SOURCE_DIR}
+    DEPENDS ${PROJECT_NAME}
+)
+add_custom_target(generate_stubs ALL DEPENDS ${PROJECT_NAME}_stub)
 
 # Switch from DEBUG to RELEASE !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 # if(NOT MSVC AND CMAKE_BUILD_TYPE STREQUAL "Release")
