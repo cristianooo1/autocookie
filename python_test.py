@@ -10,21 +10,22 @@ import gymnasium as gym
 from gymnasium.envs.registration import register
 from stable_baselines3 import A2C, PPO
 from stable_baselines3.common.env_util import make_vec_env
+from stable_baselines3.common.vec_env import SubprocVecEnv
 
 import cookie_env
 
 from typing import Optional, Any
 
-
-def main():
-    
-    register(
+register(
     id="CookieClicker-v0",
     entry_point="cookie_env:CookieEnv",
     )
+
+def main():
     
     # train_env = gym.make("CookieClicker-v0")
     train_env = make_vec_env("CookieClicker-v0", n_envs=8)
+    # train_env = make_vec_env("CookieClicker-v0", n_envs=8, vec_env_cls=SubprocVecEnv)
     
     model = PPO(
         "MultiInputPolicy",
@@ -35,7 +36,7 @@ def main():
         seed=42,
         )
     print("STARTED TRAINING")
-    model.learn(total_timesteps=5000, tb_log_name="PPO_5000steps_seed42") # 250_000 for real training
+    model.learn(total_timesteps=50_000, tb_log_name="PPO_50000steps_DummyVecEnv") # 250_000 for real training
     print("FINISHED TRAINING")
     
     test_env = gym.make("CookieClicker-v0", render_mode="human")
