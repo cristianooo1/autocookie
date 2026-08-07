@@ -25,10 +25,10 @@ class CookieEnv(gym.Env):
         
         # 6 observations so far
         self.observation_space = spaces.Dict({
-            "current_cookies": spaces.Box(low=0.0, high=np.inf, shape=(), dtype=np.float32),
-            "all_time_cookies": spaces.Box(low=0.0, high=np.inf, shape=(), dtype=np.float32),
-            "buildings_owned": spaces.Box(low=0, high=np.inf, shape=(3,), dtype=np.int32),
-            "cps": spaces.Box(low=0.0, high=np.inf, shape=(), dtype=np.float32),
+            "current_cookies": spaces.Box(low=0.0, high=np.inf, shape=(1,), dtype=np.float32),
+            "all_time_cookies": spaces.Box(low=0.0, high=np.inf, shape=(1,), dtype=np.float32),
+            "buildings_owned": spaces.Box(low=0, high=np.iinfo(np.int32).max, shape=(3,), dtype=np.int32),
+            "cps": spaces.Box(low=0.0, high=np.inf, shape=(1,), dtype=np.float32),
         })
         
         # pygame for rendering setup
@@ -42,10 +42,10 @@ class CookieEnv(gym.Env):
     
     def _convert_observation(self, obs_struct):
         return {
-            "current_cookies": np.array(obs_struct.current_cookies, dtype=np.float32),
-            "all_time_cookies": np.array(obs_struct.all_time_cookies, dtype=np.float32),
-            "buildings_owned": np.array(obs_struct.buildings_owned, dtype=np.int32),
-            "cps": np.array(obs_struct.cps, dtype=np.float32),
+            "current_cookies": np.array([obs_struct.current_cookies], dtype=np.float32),
+            "all_time_cookies": np.array([obs_struct.all_time_cookies], dtype=np.float32),
+            "buildings_owned": np.array(obs_struct.buildings_owned, dtype=np.int32).flatten(),
+            "cps": np.array([obs_struct.cps], dtype=np.float32),
         }
         
     def reset(

@@ -4,3 +4,5 @@ build/
 *.pyi
 *.so
 __pycache__
+
+gpu_test.py
