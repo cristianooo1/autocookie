@@ -1,85 +1,47 @@
 #include "env.hpp"
 
-/*
-SIMULATION STEPS:
-
-Current state
-
-Receive action = PLAYER COMMAND
-
-Execute action BY ENGINE
-
-Events occur
-
-Recalculate production
-
-Advance timers - simulation by dt
-
-Return new state
-*/
-
-/*
-RL TRAINING:
-reset()
-
-step(action)
-
-getObservation()
-
-getReward()
-
-isTerminal()
-*/
-
-/*
-https://www.learncpp.com/cpp-tutorial/scoped-enumerations-enum-classes/
-
-Overload the unary + operator to convert an enum to the underlying type
-*/
-template <typename T>
-constexpr auto operator+(T a) noexcept
+Env::Env()
 {
-    return static_cast<std::underlying_type_t<T>>(a);
-}
-
-void BuildingSystem::update(GameState &state, const Action &action)
-{
-    double price = Config::buildingsDefinitions[+action.buildingIndex].base_cost *
-                   std::pow(
-                       Config::buildingsDefinitions[+action.buildingIndex].cost_multiplier,
-                       static_cast<double>(state.buildingsOwned[+action.buildingIndex]));
-
-    if (action.type == ActionType::BuyBuilding && state.current_cookies >= price)
-    {
-        state.current_cookies -= price;
-        state.buildingsOwned[+action.buildingIndex] += 1;
-    }
-    else if (action.type == ActionType::ClickCookie)
-    {
-        state.current_cookies += 1;
-        state.alltime_cookies += 1;
-    }
-    else if (action.type == ActionType::Wait)
-    {
-    }
-}
-
-void Economy::update(GameState &state, const double dt)
-{
-    double base_cps = 0.0;
-    for (int i = 0; i < Config::TOTAL_NR_BUILDINGS_AVAILABLE; i++)
-    {
-        base_cps += static_cast<double>(state.buildingsOwned[i]) * Config::buildingsDefinitions[i].base_production;
-    };
-    state.cps = base_cps; // * upgrades * buffs * ... TO BE IMPLEMENTED!!!!!!!!
-    state.current_cookies += state.cps * dt;
-    state.alltime_cookies += state.cps * dt;
 }
 
 StepResult Env::step(const Action &action)
 {
-    buildingSystem.update(state, action);
-    state.time += dt;
+
+    /*
+
+    if (action.type == ActionType::BuyBuilding)
+    {
+        buildingSystem.buy(state, action);
+
+        constexpr double dt = Config::buying_time_cost;
+
+        simulationSystem.advanceTime(state, dt);
+            where: state.current_time += dt;
+        economy.advance(state, dt, false);
+        eventSystem.processEvents(state);
+    }
+    else if (action.type == ActionType::Advance)
+    {
+        double dt = simulationSystem.timeUntilNextDecision(state);
+            //where it determines time passed until next relevant event
+            // ignore events that are currently available: e.g. cursor is availabe to buy but agent doesnt want to
+            // cap dt by remaining episode time
+
+        simulationSystem.advanceTime(state, dt);
+        economy.advance(state, dt, true);
+        eventSystem.processEvents(state);
+    }
+
+    return {
+        get_observation(),
+        get_reward(),
+        is_terminal()
+    };
+
+    */
+
+    this->buildingSystem.update(state, action);
+    state.current_time += dt;
     // events.update(state, dt);
     economy.update(state, dt);
 
@@ -92,11 +54,11 @@ StepResult Env::step(const Action &action)
 
 Observation Env::reset()
 {
-    state.alltime_cookies = 0.0;
+    state.current_time = 0.0;
     state.current_cookies = 0.0;
-    state.time = 0.0;
+    state.alltime_cookies = 0.0;
     state.cps = 0.0;
-    for (int i = 0; i < Config::TOTAL_NR_BUILDINGS_AVAILABLE; i++)
+    for (int i = 0; i < +BuildingType::BUILDING_COUNT; i++)
     {
         state.buildingsOwned[i] = 0;
     }
@@ -105,26 +67,43 @@ Observation Env::reset()
     prev_progress_alltime_cookies = 0.0;
     prev_progress_cps = 0.0;
 
-    return Observation{
-        .current_cookies = state.current_cookies,
-        .all_time_cookies = state.alltime_cookies,
-        .buildings_owned = state.buildingsOwned,
-        .cps = state.cps,
-    };
+    Observation obs;
+    obs.current_cookies = state.current_cookies,
+    obs.all_time_cookies = state.alltime_cookies,
+    obs.cps = state.cps,
+    obs.buildings_owned = state.buildingsOwned;
+
+    for (int i = 0; i < +BuildingType::BUILDING_COUNT; i++)
+    {
+        obs.can_buy_1[i] = false;
+        obs.can_buy_10[i] = false;
+        obs.can_buy_100[i] = false;
+    }
+
+    return obs;
 }
 
 Observation Env::get_observation()
 {
-    return Observation{
-        .current_cookies = state.current_cookies,
-        .all_time_cookies = state.alltime_cookies,
-        .buildings_owned = state.buildingsOwned,
-        .cps = state.cps,
-    };
+    Observation obs;
+    obs.current_cookies = state.current_cookies,
+    obs.all_time_cookies = state.alltime_cookies,
+    obs.cps = state.cps,
+    obs.buildings_owned = state.buildingsOwned;
+
+    for (int i = 0; i < +BuildingType::BUILDING_COUNT; i++)
+    {
+        obs.can_buy_1[i] = buildingSystem.can_buy(state, i, 1);
+        obs.can_buy_10[i] = buildingSystem.can_buy(state, i, 10);
+        obs.can_buy_100[i] = buildingSystem.can_buy(state, i, 100);
+    }
+
+    return obs;
 }
 
 double Env::get_reward()
 {
+    // CHANGE THIS!!!!!!!!!!!
     double reward = (state.alltime_cookies - prev_progress_alltime_cookies) + (state.cps - prev_progress_cps) * 5;
     prev_progress_alltime_cookies = state.alltime_cookies;
     prev_progress_cps = state.cps;
@@ -133,7 +112,7 @@ double Env::get_reward()
 
 bool Env::is_terminal()
 {
-    if (state.time == 100)
+    if (state.current_time >= Config::episode_length)
     {
         return true;
     }
@@ -155,7 +134,7 @@ std::tuple<double, double, double, double, int, int, int> Env::queryState()
         state.current_cookies,
         state.alltime_cookies,
         state.cps,
-        state.time,
+        state.current_time,
         state.buildingsOwned[+BuildingType::CURSOR],
         state.buildingsOwned[+BuildingType::GRANDMA],
         state.buildingsOwned[+BuildingType::FARM]);

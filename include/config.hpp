@@ -2,34 +2,26 @@
 
 #include <array>
 
+/*
+https://www.learncpp.com/cpp-tutorial/scoped-enumerations-enum-classes/
+
+Overload the unary + operator to convert an enum to the underlying type
+*/
+template <typename T>
+constexpr auto operator+(T a) noexcept
+{
+    return static_cast<std::underlying_type_t<T>>(a);
+}
+
 namespace Config
 {
-    struct BuildingDefinition
-    {
-        double base_cost{0.1};
-        double base_production{0.1};
-        double cost_multiplier{0.1};
-    };
+    constexpr double building_price_multiplier_buy_10{20.303718238};
+    constexpr double building_price_multiplier_buy_100{7828749.671335256};
 
-    constexpr int TOTAL_NR_BUILDINGS_AVAILABLE = 3;
+    constexpr double buying_time_cost{0.2};
 
-    constexpr std::array<BuildingDefinition, TOTAL_NR_BUILDINGS_AVAILABLE> buildingsDefinitions{
-        BuildingDefinition{
-            // CURSOR = 0
-            .base_cost = 1,
-            .base_production = 0.1,
-            .cost_multiplier = 1.15,
-        },
-        BuildingDefinition{
-            // GRANDMA = 1
-            .base_cost = 20,
-            .base_production = 0.25,
-            .cost_multiplier = 1.25,
-        },
-        BuildingDefinition{
-            // FARM = 2
-            .base_cost = 50,
-            .base_production = 0.4,
-            .cost_multiplier = 1.5,
-        }};
+    constexpr double clicking_frequency{5.0};
+
+    constexpr double episode_length{100.0};
+
 };

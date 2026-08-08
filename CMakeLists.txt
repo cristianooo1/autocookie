@@ -78,7 +78,9 @@ target_include_directories(imgui PUBLIC
 target_link_libraries(imgui PRIVATE glfw OpenGL::GL)
 
 set(CORE_SOURCES 
-    src/env.cpp   
+    src/env.cpp
+    src/buildingSystem.cpp
+    src/economySystem.cpp   
 )
 
 # CORE
