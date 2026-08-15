@@ -14,6 +14,7 @@ public:
     EventSystem();
 
     void generateEpisodeSeed();
+    void setEpisodeSeed(unsigned int seed);
     unsigned int getEpisodeSeed();
 
     void generateNextGoldenCookieSpawn(GameState &state);

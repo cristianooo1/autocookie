@@ -195,11 +195,19 @@ StepResult Env::step(const Action &action)
     };
 }
 
-Observation Env::reset()
+Observation Env::reset(std::optional<unsigned int> seed)
 {
     state = GameState{};
 
-    eventSystem.generateEpisodeSeed();
+    if (seed.has_value())
+    {
+        eventSystem.setEpisodeSeed(*seed);
+    }
+    else
+    {
+        eventSystem.generateEpisodeSeed();
+    }
+
     eventSystem.generateNextGoldenCookieSpawn(state);
 
     state.total_cps = economySystem.calculateEffectiveCPS(state, true);
@@ -269,4 +277,9 @@ std::tuple<double, double, double, double, int, int, int> Env::queryState()
         state.buildingsOwned[+BuildingType::CURSOR],
         state.buildingsOwned[+BuildingType::GRANDMA],
         state.buildingsOwned[+BuildingType::FARM]);
+}
+
+unsigned int Env::getEpisodeSeed()
+{
+    return eventSystem.getEpisodeSeed();
 }

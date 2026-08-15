@@ -6,11 +6,16 @@ EventSystem::EventSystem()
 {
 }
 
+void EventSystem::setEpisodeSeed(unsigned int seed)
+{
+    this->current_seed_ = seed;
+    mt_.seed(seed);
+}
+
 void EventSystem::generateEpisodeSeed()
 {
 
-    this->current_seed_ = std::random_device{}();
-    this->mt_.seed(this->current_seed_);
+    this->setEpisodeSeed(std::random_device{}());
 }
 
 unsigned int EventSystem::getEpisodeSeed()

@@ -7,6 +7,7 @@
 #include <memory> //for std::unique_ptr
 #include <string>
 #include <array>
+#include <optional>
 
 #include "config.hpp"
 #include "types.hpp"
@@ -46,7 +47,7 @@ public:
 
     StepResult step(const Action &action);
 
-    Observation reset();
+    Observation reset(std::optional<unsigned int> seed = std::nullopt);
 
     Observation get_observation();
 
@@ -55,6 +56,8 @@ public:
     bool is_terminal();
 
     std::tuple<double, double, double, double, int, int, int> queryState();
+
+    unsigned int getEpisodeSeed();
 
 private:
     GameState state;
