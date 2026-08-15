@@ -4,8 +4,10 @@
 #include "config.hpp"
 #include "types.hpp"
 
-class Economy
+class EconomySystem
 {
 public:
-    void update(GameState &state, const double dt);
+    double calculateEffectiveCPS(const GameState &state, const bool is_clicking_active);
+
+    void integrateOverDT(GameState &state, const double dt, const bool is_clicking_active);
 };

@@ -1,105 +1,116 @@
 #include "buildingSystem.hpp"
 
+#include <cmath>
+#include <stdexcept>
+#include <limits>
+
 BuildingSystem::BuildingSystem()
 {
 }
 
-void BuildingSystem::update(GameState &state, const Action &action)
+double BuildingSystem::calculateTotalPrice(
+    const GameState &state,
+    int buildingIndex,
+    int quantity)
 {
+    double first_price =
+        buildingsDefinitions[buildingIndex].base_cost *
+        std::pow(
+            1.15,
+            static_cast<double>(state.buildingsOwned[buildingIndex]));
 
-    /*
-    math is taken from here:
-    https://cookieclicker.fandom.com/wiki/Building
-    */
-
-    if (action.type == ActionType::BuyBuilding)
+    switch (quantity)
     {
+    case 1:
+        return first_price;
 
-        if (can_buy(state, +action.buildingIndex, +action.quantity))
-        {
-            double price = buildingsDefinitions[+action.buildingIndex].base_cost *
-                           std::pow(
-                               1.15,
-                               static_cast<double>(state.buildingsOwned[+action.buildingIndex]));
+    case 10:
+        return first_price *
+               Config::building_price_multiplier_buy_10;
 
-            if (action.quantity == BuyingQuantity::ONE)
-            {
-                state.current_cookies -= price;
-                state.buildingsOwned[+action.buildingIndex] += 1;
-            }
+    case 100:
+        return first_price *
+               Config::building_price_multiplier_buy_100;
 
-            else if (action.quantity == BuyingQuantity::TEN)
-            {
-                double price_10 = price * Config::building_price_multiplier_buy_10;
-
-                if (state.current_cookies >= price_10)
-                {
-                    state.current_cookies -= price_10;
-                    state.buildingsOwned[+action.buildingIndex] += 10;
-                }
-            }
-
-            else if (action.quantity == BuyingQuantity::ONE_HUNDRED)
-            {
-                double price_100 = price * Config::building_price_multiplier_buy_100;
-
-                if (state.current_cookies >= price_100)
-                {
-                    state.current_cookies -= price_100;
-                    state.buildingsOwned[+action.buildingIndex] += 100;
-                }
-            }
-        }
+    default:
+        throw std::invalid_argument("INVALID QUANTITY! ONLY x1, x10, x100");
     }
 }
 
-bool BuildingSystem::can_buy(const GameState &state, const int buildingIndex, const int quantity)
+PurchaseIntent BuildingSystem::validatePurchase(
+    const GameState &state,
+    const Action &action)
+{
+    // assume action.type == BuyBuilding !!!
+    double price =
+        calculateTotalPrice(state, +action.buildingIndex, +action.quantity);
+
+    bool can_buy = state.current_cookies >= price;
+
+    return PurchaseIntent{
+        .canAfford = can_buy,
+        .buildingIndex = action.buildingIndex,
+        .quantity = action.quantity,
+        .totalPrice = price};
+}
+
+void BuildingSystem::makePurchase(
+    GameState &state,
+    const PurchaseIntent &purchase)
+{
+    if (!purchase.canAfford)
+    {
+        throw std::logic_error("NOT ENOUGH COOKIES FOR PURCHASE");
+    }
+
+    if (state.current_cookies < purchase.totalPrice)
+    {
+        throw std::logic_error(
+            "IN THE 200MS AN EVENT CAUSED A DROP IN CURRENT_COOKIES SO THE PURCHASE IS UNNAFORDABLE LOL");
+    }
+
+    state.current_cookies -= purchase.totalPrice;
+    state.buildingsOwned[+purchase.buildingIndex] += +purchase.quantity;
+}
+
+bool BuildingSystem::canBuy(
+    const GameState &state,
+    int buildingIndex,
+    int quantity)
 {
 
-    double price = buildingsDefinitions[buildingIndex].base_cost *
-                   std::pow(
-                       1.15,
-                       static_cast<double>(state.buildingsOwned[buildingIndex]));
+    double price =
+        calculateTotalPrice(state, buildingIndex, quantity);
 
-    if (quantity == 1 && state.current_cookies >= price)
+    if (state.current_cookies >= price)
     {
         return true;
     }
-
-    else if (quantity == 10)
+    else
     {
-        double price_10 = price * Config::building_price_multiplier_buy_10;
-
-        if (state.current_cookies >= price_10)
-        {
-            return true;
-        }
+        return false;
     }
-
-    else if (quantity == 100)
-    {
-        double price_100 = price * Config::building_price_multiplier_buy_100;
-
-        if (state.current_cookies >= price_100)
-        {
-            return true;
-        }
-    }
-
-    return false;
 }
 
-double BuildingSystem::time_until_affordable(GameState &state, const int buildingIndex)
+double BuildingSystem::getAbsoluteTimestampNextAffordableBuilding(
+    const GameState &state,
+    int buildingIndex,
+    int quantity,
+    double rate)
 {
+    /*
+    returns the absolute timestamp for when the SPECIFIED building by "buildingIndex" becomes affordable
+    return INFINITY if that specified building is already affordable
+    */
 
-    if (!can_buy(state, buildingIndex, 1))
+    double price =
+        calculateTotalPrice(state, buildingIndex, quantity);
+
+    if (state.current_cookies >= price || rate <= 0.0)
     {
-        double price = buildingsDefinitions[buildingIndex].base_cost *
-                       std::pow(
-                           1.15,
-                           static_cast<double>(state.buildingsOwned[buildingIndex]));
-
-        return ((price - state.current_cookies) / state.cps);
+        return std::numeric_limits<double>::infinity();
     }
-    return 0.0;
+
+    return state.current_simulation_time +
+           (price - state.current_cookies) / rate;
 }

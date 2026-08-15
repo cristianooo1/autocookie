@@ -1,31 +1,35 @@
 #pragma once
 
 #include <iostream>
-#include <string>
 #include <chrono>
 #include <tuple>
 #include <vector>
 #include <memory> //for std::unique_ptr
 #include <string>
+#include <array>
 
 #include "config.hpp"
 #include "types.hpp"
 #include "gameState.hpp"
 #include "buildingSystem.hpp"
 #include "economySystem.hpp"
+#include "simulationSystem.hpp"
+#include "eventSystem.hpp"
+
+#include "eventTypes.hpp"
 
 struct Observation
 {
     double current_cookies{};
     double all_time_cookies{};
-    double cps{};
+    double total_cps{};
     std::array<int, +BuildingType::BUILDING_COUNT> buildings_owned{};
 
     std::array<bool, +BuildingType::BUILDING_COUNT> can_buy_1{};
     std::array<bool, +BuildingType::BUILDING_COUNT> can_buy_10{};
     std::array<bool, +BuildingType::BUILDING_COUNT> can_buy_100{};
 
-    // active buffs and timers
+    std::vector<ActiveGoldenCookieBuff> activeGoldenCookieBuffs{};
 };
 
 struct StepResult
@@ -54,12 +58,11 @@ public:
 
 private:
     GameState state;
-    Economy economy;
+    EconomySystem economySystem;
     BuildingSystem buildingSystem;
+    EventSystem eventSystem;
+    SimulationSystem simulationSystem;
 
-    const double dt{1.0};
-
-    double prev_progress_cookies{0.0};
     double prev_progress_alltime_cookies{0.0};
     double prev_progress_cps{0.0};
 };

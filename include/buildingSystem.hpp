@@ -1,7 +1,5 @@
 #pragma once
 
-#include <cmath>
-
 #include "gameState.hpp"
 #include "config.hpp"
 #include "types.hpp"
@@ -11,11 +9,22 @@ class BuildingSystem
 public:
     BuildingSystem();
 
-    void update(GameState &state, const Action &action);
+    double calculateTotalPrice(
+        const GameState &state,
+        int buildingIndex,
+        int quantity);
 
-    bool can_buy(const GameState &state, const int buildingIndex, const int quantity);
+    PurchaseIntent validatePurchase(const GameState &state, const Action &action);
 
-    double time_until_affordable(GameState &state, const int buildingIndex);
+    void makePurchase(GameState &state, const PurchaseIntent &purchase);
+
+    bool canBuy(const GameState &state, int buildingIndex, int quantity);
+
+    double getAbsoluteTimestampNextAffordableBuilding(
+        const GameState &state,
+        int buildingIndex,
+        int quantity,
+        double rate);
 
 private:
 };

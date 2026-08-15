@@ -1,5 +1,7 @@
 #pragma once
 
+#include <array>
+
 enum class BuildingType
 {
     CURSOR = 0,
@@ -14,7 +16,7 @@ struct BuildingDefinition
     double base_cps{0.1};
 };
 
-constexpr std::array<BuildingDefinition, static_cast<int>(BuildingType::BUILDING_COUNT)> buildingsDefinitions{
+inline constexpr std::array<BuildingDefinition, static_cast<int>(BuildingType::BUILDING_COUNT)> buildingsDefinitions{
     BuildingDefinition{
         // CURSOR = 0
         .base_cost = 15.0,
@@ -40,7 +42,6 @@ enum class BuyingQuantity
 
 enum class ActionType
 {
-    // ClickCookie = 0,  REMOVE THIS from the other parts !!!!!!!!!!!!!!
     Advance,
     BuyBuilding,
     // BuyUpgrade
@@ -54,4 +55,12 @@ struct Action
     ActionType type{};
     BuildingType buildingIndex{};
     BuyingQuantity quantity{};
+};
+
+struct PurchaseIntent
+{
+    bool canAfford{false};
+    BuildingType buildingIndex{};
+    BuyingQuantity quantity{};
+    double totalPrice{0.0};
 };

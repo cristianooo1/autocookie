@@ -1,6 +1,7 @@
 #pragma once
 
 #include <array>
+#include <type_traits>
 
 /*
 https://www.learncpp.com/cpp-tutorial/scoped-enumerations-enum-classes/
@@ -15,13 +16,13 @@ constexpr auto operator+(T a) noexcept
 
 namespace Config
 {
+    constexpr double episode_length{100.0};
+
     constexpr double building_price_multiplier_buy_10{20.303718238};
     constexpr double building_price_multiplier_buy_100{7828749.671335256};
 
     constexpr double buying_time_cost{0.2};
 
     constexpr double clicking_frequency{5.0};
-
-    constexpr double episode_length{100.0};
 
 };

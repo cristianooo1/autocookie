@@ -1,0 +1,122 @@
+#include <algorithm>
+#include <array>
+#include <cmath>
+#include <limits>
+#include <vector>
+
+#include "simulationSystem.hpp"
+
+SimulationSystem::SimulationSystem()
+{
+}
+
+std::vector<NextScheduledEvent> SimulationSystem::getTimeNextDecision(
+    GameState &state,
+    BuildingSystem &building_system,
+    EventSystem &event_system,
+    double rate)
+{
+    std::vector<NextScheduledEvent> future_scheduled_events{};
+
+    double next_affordable_building = std::numeric_limits<double>::infinity();
+
+    constexpr std::array<int, 3> quantities{1, 10, 100};
+
+    for (int i = 0; i < +BuildingType::BUILDING_COUNT; i++)
+    {
+        for (const int quantity : quantities)
+        {
+            double timestamp = building_system.getAbsoluteTimestampNextAffordableBuilding(
+                state,
+                i,
+                quantity,
+                rate);
+
+            next_affordable_building = std::min(next_affordable_building, timestamp);
+        }
+    }
+    if (std::isfinite(next_affordable_building))
+    {
+        future_scheduled_events.push_back(NextScheduledEvent{
+            .event_type = WakeUpDecisionEventType::BuildingAvailable,
+            .absolute_timestamp = next_affordable_building});
+    }
+
+    future_scheduled_events.push_back(NextScheduledEvent{
+        .event_type = WakeUpDecisionEventType::GoldenCookieSpawned,
+        .absolute_timestamp = event_system.getNextGoldenCookieSpawn(),
+    });
+
+    if (state.activeGoldenCookieBuffs.size() > 0)
+    {
+        double next_expiration = std::numeric_limits<double>::infinity();
+
+        for (const ActiveGoldenCookieBuff &buff : state.activeGoldenCookieBuffs)
+        {
+            next_expiration = std::min(next_expiration, buff.expires_at);
+        }
+
+        future_scheduled_events.push_back(NextScheduledEvent{
+            .event_type = WakeUpDecisionEventType::GoldenCookieBuffExpiration,
+            .absolute_timestamp = next_expiration});
+    }
+
+    future_scheduled_events.push_back(NextScheduledEvent{
+        .event_type = WakeUpDecisionEventType::EpisodeBoundary,
+        .absolute_timestamp = Config::episode_length});
+
+    return this->getEarliestEvent(future_scheduled_events);
+}
+
+std::vector<NextScheduledEvent> SimulationSystem::getTimeNextInternalEvents(
+    GameState &state,
+    EventSystem &event_system)
+{
+    std::vector<NextScheduledEvent> future_events;
+
+    future_events.push_back(NextScheduledEvent{
+        .event_type = WakeUpDecisionEventType::GoldenCookieSpawned,
+        .absolute_timestamp = event_system.getNextGoldenCookieSpawn()});
+
+    if (state.activeGoldenCookieBuffs.size() > 0)
+    {
+        double next_expiration = std::numeric_limits<double>::infinity();
+
+        for (const ActiveGoldenCookieBuff &buff : state.activeGoldenCookieBuffs)
+        {
+            next_expiration = std::min(next_expiration, buff.expires_at);
+        }
+
+        future_events.push_back(NextScheduledEvent{
+            .event_type = WakeUpDecisionEventType::GoldenCookieBuffExpiration,
+            .absolute_timestamp = next_expiration});
+    }
+
+    future_events.push_back(NextScheduledEvent{
+        .event_type = WakeUpDecisionEventType::EpisodeBoundary,
+        .absolute_timestamp = Config::episode_length});
+
+    return this->getEarliestEvent(future_events);
+}
+
+std::vector<NextScheduledEvent> SimulationSystem::getEarliestEvent(const std::vector<NextScheduledEvent> &future_events)
+{
+    constexpr double time_epsilon = 1e-9;
+    double earliest_event = Config::episode_length;
+
+    for (const NextScheduledEvent &event : future_events)
+    {
+        earliest_event = std::min(earliest_event, event.absolute_timestamp);
+    }
+
+    std::vector<NextScheduledEvent> earliest_events;
+
+    for (const NextScheduledEvent &event : future_events)
+    {
+        if (std::abs(event.absolute_timestamp - earliest_event) <= time_epsilon)
+        {
+            earliest_events.push_back(event);
+        }
+    }
+    return earliest_events;
+}

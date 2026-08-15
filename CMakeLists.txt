@@ -10,8 +10,9 @@ endif()
 find_package(Python 3.9 COMPONENTS Interpreter ${DEV_MODULE} REQUIRED)
 
 #  modern C++
-set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_CXX_EXTENSIONS OFF)
 
 find_package(OpenGL REQUIRED)
 
@@ -80,7 +81,9 @@ target_link_libraries(imgui PRIVATE glfw OpenGL::GL)
 set(CORE_SOURCES 
     src/env.cpp
     src/buildingSystem.cpp
-    src/economySystem.cpp   
+    src/economySystem.cpp
+    src/simulationSystem.cpp
+    src/eventSystem.cpp   
 )
 
 # CORE
@@ -93,19 +96,19 @@ add_executable(${PROJECT_NAME}_main src/main.cpp)
 target_link_libraries(${PROJECT_NAME}_main PRIVATE ${PROJECT_NAME}_core)
 
 # NANOBIND
-nanobind_add_module(${PROJECT_NAME} src/bindings.cpp)
-target_link_libraries(${PROJECT_NAME} PRIVATE ${PROJECT_NAME}_core)
-set_target_properties(${PROJECT_NAME} PROPERTIES 
-    LIBRARY_OUTPUT_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
-)
-nanobind_add_stub(
-    ${PROJECT_NAME}_stub
-    MODULE ${PROJECT_NAME}
-    OUTPUT ${CMAKE_CURRENT_SOURCE_DIR}/${PROJECT_NAME}.pyi
-    PYTHON_PATH ${CMAKE_CURRENT_SOURCE_DIR}
-    DEPENDS ${PROJECT_NAME}
-)
-add_custom_target(generate_stubs ALL DEPENDS ${PROJECT_NAME}_stub)
+# nanobind_add_module(${PROJECT_NAME} src/bindings.cpp)
+# target_link_libraries(${PROJECT_NAME} PRIVATE ${PROJECT_NAME}_core)
+# set_target_properties(${PROJECT_NAME} PROPERTIES 
+#     LIBRARY_OUTPUT_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+# )
+# nanobind_add_stub(
+#     ${PROJECT_NAME}_stub
+#     MODULE ${PROJECT_NAME}
+#     OUTPUT ${CMAKE_CURRENT_SOURCE_DIR}/${PROJECT_NAME}.pyi
+#     PYTHON_PATH ${CMAKE_CURRENT_SOURCE_DIR}
+#     DEPENDS ${PROJECT_NAME}
+# )
+# add_custom_target(generate_stubs ALL DEPENDS ${PROJECT_NAME}_stub)
 
 # Switch from DEBUG to RELEASE !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 # if(NOT MSVC AND CMAKE_BUILD_TYPE STREQUAL "Release")
