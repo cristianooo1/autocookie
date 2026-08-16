@@ -3,8 +3,40 @@
 #include <cmath>
 #include <limits>
 #include <vector>
+#include <cassert>
 
 #include "simulationSystem.hpp"
+
+#ifndef NDEBUG
+namespace
+{
+    void assertValidFutureSchedule(
+        const GameState &state,
+        const std::vector<NextScheduledEvent> &events)
+    {
+        assert(!events.empty());
+
+        for (const NextScheduledEvent &event : events)
+        {
+            const int event_type =
+                static_cast<int>(event.event_type);
+
+            assert(event_type >= 0);
+            assert(
+                event_type <
+                +WakeUpDecisionEventType::EVENT_COUNT);
+
+            assert(std::isfinite(event.absolute_timestamp));
+
+            // These functions schedule future events from a fully processed
+            // non-terminal decision state.
+            assert(
+                event.absolute_timestamp >
+                state.current_simulation_time);
+        }
+    }
+}
+#endif
 
 SimulationSystem::SimulationSystem()
 {
@@ -65,6 +97,12 @@ std::vector<NextScheduledEvent> SimulationSystem::getTimeNextDecision(
         .event_type = WakeUpDecisionEventType::EpisodeBoundary,
         .absolute_timestamp = Config::episode_length});
 
+#ifndef NDEBUG
+    assertValidFutureSchedule(
+        state,
+        future_scheduled_events);
+#endif
+
     return this->getEarliestEvent(future_scheduled_events);
 }
 
@@ -96,11 +134,25 @@ std::vector<NextScheduledEvent> SimulationSystem::getTimeNextInternalEvents(
         .event_type = WakeUpDecisionEventType::EpisodeBoundary,
         .absolute_timestamp = Config::episode_length});
 
+#ifndef NDEBUG
+    assertValidFutureSchedule(
+        state,
+        future_events);
+#endif
+
     return this->getEarliestEvent(future_events);
 }
 
 std::vector<NextScheduledEvent> SimulationSystem::getEarliestEvent(const std::vector<NextScheduledEvent> &future_events)
 {
+#ifndef NDEBUG
+    assert(!future_events.empty());
+
+    for (const NextScheduledEvent &event : future_events)
+    {
+        assert(std::isfinite(event.absolute_timestamp));
+    }
+#endif
 
     double earliest_event = std::numeric_limits<double>::infinity();
 
@@ -118,5 +170,15 @@ std::vector<NextScheduledEvent> SimulationSystem::getEarliestEvent(const std::ve
             earliest_events.push_back(event);
         }
     }
+
+#ifndef NDEBUG
+    assert(!earliest_events.empty());
+
+    for (const NextScheduledEvent &event : earliest_events)
+    {
+        assert(event.absolute_timestamp == earliest_event);
+    }
+#endif
+
     return earliest_events;
 }

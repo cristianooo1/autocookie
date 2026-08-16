@@ -4,6 +4,9 @@
 #include <algorithm>
 #include <stdexcept>
 
+#include <cassert>
+#include <cmath>
+
 double EconomySystem::calculateEffectiveCPS(
     const GameState &state,
     bool is_clicking_active)
@@ -43,6 +46,12 @@ double EconomySystem::calculateEffectiveCPS(
     }
 
     double effective_cps = (building_cps + clicking_cps * clicking_multiplier) * global_multiplier;
+
+#ifndef NDEBUG
+    assert(std::isfinite(effective_cps));
+    assert(effective_cps >= 0.0);
+#endif
+
     return effective_cps;
 }
 
@@ -51,6 +60,17 @@ void EconomySystem::integrateOverDT(
     const double dt,
     const bool is_clicking_active)
 {
+#ifndef NDEBUG
+    assert(std::isfinite(dt));
+    assert(dt >= 0.0);
+
+    const double previous_current_cookies =
+        state.current_cookies;
+
+    const double previous_alltime_cookies =
+        state.alltime_cookies;
+#endif
+
     constexpr double time_epsilon = 1e-9;
 
     // prevent negative dt
@@ -63,7 +83,28 @@ void EconomySystem::integrateOverDT(
 
     double rate = this->calculateEffectiveCPS(state, is_clicking_active);
 
+#ifndef NDEBUG
+    assert(std::isfinite(rate));
+    assert(rate >= 0.0);
+#endif
+
     state.current_cookies += rate * positive_dt;
     state.alltime_cookies += rate * positive_dt;
     state.total_cps = rate;
+
+#ifndef NDEBUG
+    assert(std::isfinite(state.current_cookies));
+    assert(std::isfinite(state.alltime_cookies));
+    assert(std::isfinite(state.total_cps));
+
+    assert(
+        state.current_cookies >=
+        previous_current_cookies);
+
+    assert(
+        state.alltime_cookies >=
+        previous_alltime_cookies);
+
+    assert(state.total_cps >= 0.0);
+#endif
 }

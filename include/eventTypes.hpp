@@ -89,8 +89,8 @@ constexpr std::array<GoldenCookieBuffDefinition, +GoldenCookieBuff::GOLDEN_COOKI
     },
     GoldenCookieBuffDefinition{
         // CLICK_FRENZY = 5
-        // .weight = 39700.0,
-        .weight = 0.0,
+        .weight = 39700.0,
+        // .weight = 0.0,
         .duration = 13.0,
     },
     GoldenCookieBuffDefinition{

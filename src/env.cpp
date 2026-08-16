@@ -3,6 +3,92 @@
 #include <algorithm>
 #include <cmath>
 #include <stdexcept>
+#include <cassert>
+
+#ifndef NDEBUG
+namespace
+{
+    void assertValidDecisionState(const GameState &state)
+    {
+        assert(std::isfinite(state.current_simulation_time));
+        assert(std::isfinite(state.current_cookies));
+        assert(std::isfinite(state.alltime_cookies));
+        assert(std::isfinite(state.total_cps));
+        assert(std::isfinite(state.cookies_per_click));
+
+        assert(state.current_simulation_time >= 0.0);
+        assert(state.current_simulation_time <= Config::episode_length);
+        assert(state.current_cookies >= 0.0);
+        assert(state.alltime_cookies >= 0.0);
+        assert(state.current_cookies <= state.alltime_cookies);
+        assert(state.total_cps >= 0.0);
+        assert(state.cookies_per_click >= 0.0);
+
+        for (int count : state.buildingsOwned)
+        {
+            assert(count >= 0);
+        }
+
+        assert(std::is_sorted(
+            state.activeGoldenCookieBuffs.begin(),
+            state.activeGoldenCookieBuffs.end(),
+            [](const ActiveGoldenCookieBuff &a,
+               const ActiveGoldenCookieBuff &b)
+            {
+                return a.expires_at < b.expires_at;
+            }));
+
+        for (std::size_t i = 0;
+             i < state.activeGoldenCookieBuffs.size();
+             ++i)
+        {
+            const ActiveGoldenCookieBuff &buff =
+                state.activeGoldenCookieBuffs[i];
+
+            const int buff_index =
+                static_cast<int>(buff.buff_type);
+
+            assert(buff_index >= 0);
+            assert(
+                buff_index <
+                +GoldenCookieBuff::GOLDEN_COOKIE_BUFF_COUNT);
+
+            const GoldenCookieBuffDefinition &definition =
+                GoldenCookieBuff_Definitions[static_cast<std::size_t>(buff_index)];
+
+            // LUCKY is instantaneous
+            // disabled buffs cannot be active
+            assert(definition.weight > 0.0);
+            assert(definition.duration > 0.0);
+
+            assert(std::isfinite(buff.starts_at));
+            assert(std::isfinite(buff.expires_at));
+            assert(buff.starts_at >= 0.0);
+            assert(buff.starts_at <= state.current_simulation_time);
+            assert(buff.expires_at > buff.starts_at);
+
+            assert(buff.expires_at >= state.current_simulation_time);
+
+            if (state.current_simulation_time <
+                Config::episode_length)
+            {
+                assert(
+                    buff.expires_at >
+                    state.current_simulation_time);
+            }
+
+            for (std::size_t j = i + 1;
+                 j < state.activeGoldenCookieBuffs.size();
+                 ++j)
+            {
+                assert(
+                    buff.buff_type !=
+                    state.activeGoldenCookieBuffs[j].buff_type);
+            }
+        }
+    }
+}
+#endif
 
 Env::Env()
 {
@@ -10,7 +96,12 @@ Env::Env()
 
 StepResult Env::step(const Action &action)
 {
-    constexpr double time_epsilon = 1e-9;
+#ifndef NDEBUG
+    const double step_start_time =
+        state.current_simulation_time;
+
+    assertValidDecisionState(state);
+#endif
 
     if (is_terminal())
     {
@@ -53,6 +144,16 @@ StepResult Env::step(const Action &action)
                 WakeUpDecisionEventType::
                     GoldenCookieBuffExpiration))
         {
+#ifndef NDEBUG
+            assert(std::any_of(
+                state.activeGoldenCookieBuffs.begin(),
+                state.activeGoldenCookieBuffs.end(),
+                [&](const ActiveGoldenCookieBuff &buff)
+                {
+                    return buff.expires_at ==
+                           state.current_simulation_time;
+                }));
+#endif
             eventSystem.removeGoldenCookieBuff(state);
         } };
 
@@ -65,11 +166,20 @@ StepResult Env::step(const Action &action)
                 WakeUpDecisionEventType::
                     GoldenCookieSpawned))
         {
+#ifndef NDEBUG
+            assert(
+                state.current_simulation_time ==
+                eventSystem.getNextGoldenCookieSpawn());
+#endif
             // LUCKY uses passive cps
             double rate =
                 economySystem.calculateEffectiveCPS(
                     state,
                     false);
+#ifndef NDEBUG
+            assert(std::isfinite(rate));
+            assert(rate >= 0.0);
+#endif
 
             eventSystem.processGoldenCookieBuff(
                 state,
@@ -98,6 +208,14 @@ StepResult Env::step(const Action &action)
             eventSystem,
             rate);
         double next_timestamp = future_events.at(0).absolute_timestamp;
+
+#ifndef NDEBUG
+        assert(!future_events.empty());
+        assert(std::isfinite(next_timestamp));
+        assert(
+            next_timestamp >
+            state.current_simulation_time);
+#endif
 
         // update economy with clicking=true
         double dt = next_timestamp - state.current_simulation_time;
@@ -130,15 +248,39 @@ StepResult Env::step(const Action &action)
         bool has_purchase_completed = false;
         double purchase_end_timestamp = state.current_simulation_time + Config::buying_time_cost;
 
+#ifndef NDEBUG
+        assert(std::isfinite(purchase_end_timestamp));
+        assert(
+            purchase_end_timestamp >
+            state.current_simulation_time);
+#endif
+
         // get closest future wakeup event/s = building affordable AND/OR golden cookie spawn AND/OR buff expiration
-        while (state.current_simulation_time + time_epsilon < purchase_end_timestamp)
+        while (state.current_simulation_time < purchase_end_timestamp)
         {
             // t1 -> event.timestamp -> t2 = buy_building
 
             std::vector<NextScheduledEvent> future_events = simulationSystem.getTimeNextInternalEvents(state, eventSystem);
 
             double internal_timestamp = future_events.at(0).absolute_timestamp;
+#ifndef NDEBUG
+            assert(!future_events.empty());
+            assert(std::isfinite(internal_timestamp));
+            assert(
+                internal_timestamp >
+                state.current_simulation_time);
+#endif
             double next_timestamp = std::min(purchase_end_timestamp, internal_timestamp);
+
+#ifndef NDEBUG
+            assert(std::isfinite(next_timestamp));
+            assert(
+                next_timestamp >
+                state.current_simulation_time);
+            assert(
+                next_timestamp <=
+                purchase_end_timestamp);
+#endif
 
             // update economy with clicking=false t1 -> event.timestamp
             double dt = next_timestamp - state.current_simulation_time;
@@ -148,7 +290,7 @@ StepResult Env::step(const Action &action)
             state.current_simulation_time = next_timestamp;
 
             // process all events at event.timestamp
-            bool is_internal_timestamp_reached = std::abs(internal_timestamp - next_timestamp) <= time_epsilon;
+            bool is_internal_timestamp_reached = internal_timestamp == next_timestamp;
 
             if (is_internal_timestamp_reached)
             {
@@ -172,7 +314,7 @@ StepResult Env::step(const Action &action)
                 process_golden_cookie_spawn_at_current_time(future_events);
             }
 
-            if (state.current_simulation_time + time_epsilon >= purchase_end_timestamp)
+            if (state.current_simulation_time >= purchase_end_timestamp)
             {
                 break;
             }
@@ -185,6 +327,21 @@ StepResult Env::step(const Action &action)
             // T2
             buildingSystem.makePurchase(state, purchase_intention);
         }
+
+#ifndef NDEBUG
+        if (!episode_ended)
+        {
+            assert(
+                state.current_simulation_time ==
+                purchase_end_timestamp);
+        }
+        else
+        {
+            assert(
+                state.current_simulation_time ==
+                Config::episode_length);
+        }
+#endif
     }
     else
     {
@@ -192,6 +349,20 @@ StepResult Env::step(const Action &action)
     }
 
     state.total_cps = economySystem.calculateEffectiveCPS(state, true);
+
+#ifndef NDEBUG
+    assert(
+        state.current_simulation_time >=
+        step_start_time);
+
+    assertValidDecisionState(state);
+
+    assert(
+        state.total_cps ==
+        economySystem.calculateEffectiveCPS(
+            state,
+            true));
+#endif
 
     return StepResult{
         .obs = get_observation(),
@@ -220,6 +391,23 @@ Observation Env::reset(std::optional<unsigned int> seed)
     this->prev_progress_alltime_cookies = state.alltime_cookies;
     this->prev_progress_cps = state.total_cps;
 
+#ifndef NDEBUG
+    assertValidDecisionState(state);
+
+    assert(
+        state.total_cps ==
+        economySystem.calculateEffectiveCPS(
+            state,
+            true));
+
+    assert(std::isfinite(
+        eventSystem.getNextGoldenCookieSpawn()));
+
+    assert(
+        eventSystem.getNextGoldenCookieSpawn() >
+        state.current_simulation_time);
+#endif
+
     return get_observation();
 }
 
@@ -240,7 +428,22 @@ Observation Env::get_observation()
         obs.can_buy_100[i] = buildingSystem.canBuy(state, i, 100);
     }
 
-    obs.activeGoldenCookieBuffs = state.activeGoldenCookieBuffs;
+    for (int i = 0; i < +GoldenCookieBuff::GOLDEN_COOKIE_BUFF_COUNT; i++)
+    {
+        auto buff_type = static_cast<GoldenCookieBuff>(i);
+        bool is_active = std::any_of(
+            state.activeGoldenCookieBuffs.begin(),
+            state.activeGoldenCookieBuffs.end(),
+            [buff_type](const ActiveGoldenCookieBuff &buff)
+            {
+                return buff.buff_type == buff_type;
+            });
+
+        if (is_active)
+        {
+            obs.activeGoldenCookieBuffs.push_back(buff_type);
+        }
+    }
     return obs;
 }
 
@@ -248,6 +451,11 @@ double Env::get_reward()
 {
     double current_cps = economySystem.calculateEffectiveCPS(state, true);
     double reward = (state.alltime_cookies - prev_progress_alltime_cookies) + (current_cps - prev_progress_cps) * 5.0;
+
+#ifndef NDEBUG
+    assert(std::isfinite(current_cps));
+    assert(std::isfinite(reward));
+#endif
 
     prev_progress_alltime_cookies = state.alltime_cookies;
     prev_progress_cps = current_cps;

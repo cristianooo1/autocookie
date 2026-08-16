@@ -4,6 +4,8 @@
 #include <stdexcept>
 #include <limits>
 
+#include <cassert>
+
 namespace
 {
     void validateBuildingIndex(int buildingIndex)
@@ -40,6 +42,11 @@ double BuildingSystem::calculateTotalPrice(
         std::pow(
             1.15,
             static_cast<double>(state.buildingsOwned[buildingIndex]));
+
+#ifndef NDEBUG
+    assert(std::isfinite(first_price));
+    assert(first_price > 0.0);
+#endif
 
     switch (quantity)
     {
@@ -87,6 +94,29 @@ void BuildingSystem::makePurchase(
     validateBuildingIndex(+purchase.buildingIndex);
     validateQuantity(+purchase.quantity);
 
+#ifndef NDEBUG
+    assert(std::isfinite(state.current_cookies));
+    assert(std::isfinite(purchase.totalPrice));
+    assert(purchase.totalPrice > 0.0);
+
+    const int building_index =
+        static_cast<int>(purchase.buildingIndex);
+
+    const int quantity =
+        static_cast<int>(purchase.quantity);
+
+    const double cookies_before =
+        state.current_cookies;
+
+    const int buildings_before =
+        state.buildingsOwned[static_cast<std::size_t>(building_index)];
+
+    assert(buildings_before >= 0);
+    assert(
+        buildings_before <=
+        std::numeric_limits<int>::max() - quantity);
+#endif
+
     if (!purchase.canAfford)
     {
         throw std::logic_error("NOT ENOUGH COOKIES FOR PURCHASE");
@@ -100,6 +130,19 @@ void BuildingSystem::makePurchase(
 
     state.current_cookies -= purchase.totalPrice;
     state.buildingsOwned[+purchase.buildingIndex] += +purchase.quantity;
+
+#ifndef NDEBUG
+    assert(std::isfinite(state.current_cookies));
+    assert(state.current_cookies >= 0.0);
+
+    assert(
+        state.current_cookies ==
+        cookies_before - purchase.totalPrice);
+
+    assert(
+        state.buildingsOwned[static_cast<std::size_t>(building_index)] ==
+        buildings_before + quantity);
+#endif
 }
 
 bool BuildingSystem::canBuy(
@@ -140,6 +183,16 @@ double BuildingSystem::getAbsoluteTimestampNextAffordableBuilding(
         return std::numeric_limits<double>::infinity();
     }
 
-    return state.current_simulation_time +
-           (price - state.current_cookies) / rate;
+    double timestamp =
+        state.current_simulation_time +
+        (price - state.current_cookies) / rate;
+
+    if (timestamp <= state.current_simulation_time)
+    {
+        return std::nextafter(
+            state.current_simulation_time,
+            std::numeric_limits<double>::infinity());
+    }
+
+    return timestamp;
 }

@@ -16,7 +16,7 @@ constexpr auto operator+(T a) noexcept
 
 namespace Config
 {
-    constexpr double episode_length{100.0};
+    constexpr double episode_length{5000.0};
 
     constexpr double building_price_multiplier_buy_10{20.303718238};
     constexpr double building_price_multiplier_buy_100{7828749.671335256};
@@ -24,5 +24,9 @@ namespace Config
     constexpr double buying_time_cost{0.2};
 
     constexpr double clicking_frequency{5.0};
+
+    constexpr double golden_cookie_min_time{300.0};
+    constexpr double golden_cookie_max_time{900.0};
+    constexpr double golden_cookie_checks_per_second{30.0};
 
 };

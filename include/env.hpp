@@ -31,7 +31,9 @@ struct Observation
     std::array<bool, +BuildingType::BUILDING_COUNT> can_buy_10{};
     std::array<bool, +BuildingType::BUILDING_COUNT> can_buy_100{};
 
-    std::vector<ActiveGoldenCookieBuff> activeGoldenCookieBuffs{};
+    // only have active buffs observable
+    // keep internal start/expiration timestamps hidden from agent
+    std::vector<GoldenCookieBuff> activeGoldenCookieBuffs{};
 };
 
 struct StepResult
