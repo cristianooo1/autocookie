@@ -4,6 +4,25 @@
 #include <stdexcept>
 #include <limits>
 
+namespace
+{
+    void validateBuildingIndex(int buildingIndex)
+    {
+        if (buildingIndex < 0 || buildingIndex >= +BuildingType::BUILDING_COUNT)
+        {
+            throw std::out_of_range("INVALID BUILDING INDEX");
+        }
+    }
+
+    void validateQuantity(int quantity)
+    {
+        if (quantity != 1 && quantity != 10 && quantity != 100)
+        {
+            throw std::invalid_argument("INVALID QUANTITY! ONLY x1, x10, x100");
+        }
+    }
+}
+
 BuildingSystem::BuildingSystem()
 {
 }
@@ -13,6 +32,9 @@ double BuildingSystem::calculateTotalPrice(
     int buildingIndex,
     int quantity)
 {
+    validateBuildingIndex(buildingIndex);
+    validateQuantity(quantity);
+
     double first_price =
         buildingsDefinitions[buildingIndex].base_cost *
         std::pow(
@@ -41,7 +63,11 @@ PurchaseIntent BuildingSystem::validatePurchase(
     const GameState &state,
     const Action &action)
 {
-    // assume action.type == BuyBuilding !!!
+    if (action.type != ActionType::BuyBuilding)
+    {
+        throw std::invalid_argument("PURCHASE REQUIRES BUY_BUILDING ACTIO!N!!!!!!!!!!!!!!!");
+    }
+
     double price =
         calculateTotalPrice(state, +action.buildingIndex, +action.quantity);
 
@@ -58,6 +84,9 @@ void BuildingSystem::makePurchase(
     GameState &state,
     const PurchaseIntent &purchase)
 {
+    validateBuildingIndex(+purchase.buildingIndex);
+    validateQuantity(+purchase.quantity);
+
     if (!purchase.canAfford)
     {
         throw std::logic_error("NOT ENOUGH COOKIES FOR PURCHASE");

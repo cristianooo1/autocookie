@@ -29,4 +29,6 @@ private:
     std::mt19937 mt_;
     unsigned int current_seed_{};
     double next_golden_cookie_spawn_{Config::episode_length};
+
+    friend struct EnvTestAccess;
 };

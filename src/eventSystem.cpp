@@ -105,10 +105,25 @@ void EventSystem::processGoldenCookieBuff(GameState &state, const double rate)
     }
     else
     {
-        state.activeGoldenCookieBuffs.push_back(ActiveGoldenCookieBuff{
-            .buff_type = buff,
-            .starts_at = state.current_simulation_time, // == next_golden_cookie_spawn_ ??
-            .expires_at = state.current_simulation_time + GoldenCookieBuff_Definitions[+buff].duration});
+        auto already_existing_buff = std::find_if(
+            state.activeGoldenCookieBuffs.begin(),
+            state.activeGoldenCookieBuffs.end(),
+            [buff](const ActiveGoldenCookieBuff &active_buff)
+            {
+                return active_buff.buff_type == buff;
+            });
+
+        if (already_existing_buff != state.activeGoldenCookieBuffs.end())
+        {
+            already_existing_buff->expires_at += GoldenCookieBuff_Definitions[+buff].duration;
+        }
+        else
+        {
+            state.activeGoldenCookieBuffs.push_back(ActiveGoldenCookieBuff{
+                .buff_type = buff,
+                .starts_at = state.current_simulation_time,
+                .expires_at = state.current_simulation_time + GoldenCookieBuff_Definitions[+buff].duration});
+        }
     }
 
     // sort buffs by expiration time

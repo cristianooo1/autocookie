@@ -71,31 +71,37 @@ constexpr std::array<GoldenCookieBuffDefinition, +GoldenCookieBuff::GOLDEN_COOKI
     },
     GoldenCookieBuffDefinition{
         // BUILDING_SPECIAL = 2
-        .weight = 100000.0,
+        // .weight = 100000.0,
+        .weight = 0.0,
         .duration = 30.0,
     },
     GoldenCookieBuffDefinition{
         // DRAGON_HARVEST = 3
-        .weight = 71400.0,
+        // .weight = 71400.0,
+        .weight = 0.0,
         .duration = 60.0,
     },
     GoldenCookieBuffDefinition{
         // DRAGON_FLIGHT = 4
-        .weight = 71400.0,
+        // .weight = 71400.0,
+        .weight = 0.0,
         .duration = 10.0,
     },
     GoldenCookieBuffDefinition{
         // CLICK_FRENZY = 5
-        .weight = 39700.0,
+        // .weight = 39700.0,
+        .weight = 0.0,
         .duration = 13.0,
     },
     GoldenCookieBuffDefinition{
         // EVERYTHING_MUST_GO = 6
-        .weight = 19400.0,
+        // .weight = 19400.0,
+        .weight = 0.0,
         .duration = 8.0,
     },
     GoldenCookieBuffDefinition{
         // BLAB = 7
-        .weight = 39.0,
+        // .weight = 39.0,
+        .weight = 0.0,
         .duration = 3.0,
     }};

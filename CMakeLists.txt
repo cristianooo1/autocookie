@@ -95,6 +95,26 @@ target_link_libraries(${PROJECT_NAME}_core PUBLIC imgui glfw OpenGL::GL)
 add_executable(${PROJECT_NAME}_main src/main.cpp)
 target_link_libraries(${PROJECT_NAME}_main PRIVATE ${PROJECT_NAME}_core)
 
+# TESTS
+include(CTest)
+
+if(BUILD_TESTING)
+    add_executable(
+        ${PROJECT_NAME}_tests
+        tests/cookieLogicTests.cpp
+    )
+
+    target_link_libraries(
+        ${PROJECT_NAME}_tests
+        PRIVATE ${PROJECT_NAME}_core
+    )
+
+    add_test(
+        NAME ${PROJECT_NAME}_logic_tests
+        COMMAND ${PROJECT_NAME}_tests
+    )
+endif()
+
 # NANOBIND
 # nanobind_add_module(${PROJECT_NAME} src/bindings.cpp)
 # target_link_libraries(${PROJECT_NAME} PRIVATE ${PROJECT_NAME}_core)

@@ -39,40 +39,49 @@ StepResult Env::step(const Action &action)
     };
 
     /*
-    HELPER FUNCTION
+    HELPER FUNCTIONS
     processes all events at current gamestate in a specific order:
     1. remove expired buffs
     2. add new buffs
+    3. process everything
     */
-    auto process_events_at_current_time =
-        [&](const std::vector<NextScheduledEvent> &events,
-            const bool clicking)
+    auto remove_expired_buffs_at_current_time =
+        [&](const std::vector<NextScheduledEvent> &events)
     {
-        // 1. removed expired buffs
         if (is_event_here(
                 events,
                 WakeUpDecisionEventType::
                     GoldenCookieBuffExpiration))
         {
             eventSystem.removeGoldenCookieBuff(state);
-        }
+        } };
 
-        // 2. add new buffs
-        // LUCKY NEEDS RATE AFTER ALL BUFFS EXPIRE!!!!!!!!!!!
+    // LUCKY NEEDS RATE AFTER ALL BUFFS EXPIRE!!!!!!!!!!!
+    auto process_golden_cookie_spawn_at_current_time =
+        [&](const std::vector<NextScheduledEvent> &events)
+    {
         if (is_event_here(
                 events,
                 WakeUpDecisionEventType::
                     GoldenCookieSpawned))
         {
+            // LUCKY uses passive cps
             double rate =
                 economySystem.calculateEffectiveCPS(
                     state,
-                    clicking);
+                    false);
 
             eventSystem.processGoldenCookieBuff(
                 state,
                 rate);
         }
+    };
+
+    auto process_events_at_current_time =
+        [&](const std::vector<NextScheduledEvent> &events)
+    {
+        remove_expired_buffs_at_current_time(events);
+        process_golden_cookie_spawn_at_current_time(events);
     };
 
     bool episode_ended = false;
@@ -109,9 +118,7 @@ StepResult Env::step(const Action &action)
         }
         else
         {
-            process_events_at_current_time(
-                future_events,
-                clicking);
+            process_events_at_current_time(future_events);
         }
     }
     else if (action.type == ActionType::BuyBuilding)
@@ -119,18 +126,8 @@ StepResult Env::step(const Action &action)
         // START = T1
         PurchaseIntent purchase_intention = buildingSystem.validatePurchase(state, action);
 
-        if (!purchase_intention.canAfford)
-        {
-            state.total_cps = economySystem.calculateEffectiveCPS(state, true);
-
-            return StepResult{
-                .obs = get_observation(),
-                .reward = get_reward(),
-                .done = false,
-            };
-        }
-
         bool clicking = false;
+        bool has_purchase_completed = false;
         double purchase_end_timestamp = state.current_simulation_time + Config::buying_time_cost;
 
         // get closest future wakeup event/s = building affordable AND/OR golden cookie spawn AND/OR buff expiration
@@ -151,11 +148,7 @@ StepResult Env::step(const Action &action)
             state.current_simulation_time = next_timestamp;
 
             // process all events at event.timestamp
-            bool is_internal_timestamp_reached = false;
-            if (internal_timestamp <= next_timestamp + time_epsilon)
-            {
-                is_internal_timestamp_reached = true;
-            }
+            bool is_internal_timestamp_reached = std::abs(internal_timestamp - next_timestamp) <= time_epsilon;
 
             if (is_internal_timestamp_reached)
             {
@@ -166,7 +159,17 @@ StepResult Env::step(const Action &action)
                     break;
                 }
 
-                process_events_at_current_time(future_events, clicking);
+                // at new timestamp != episode_finish, order is: expiration -> purchase_complete -> new spawn
+                remove_expired_buffs_at_current_time(future_events);
+
+                if (next_timestamp == purchase_end_timestamp &&
+                    purchase_intention.canAfford)
+                {
+                    buildingSystem.makePurchase(state, purchase_intention);
+                    has_purchase_completed = true;
+                }
+
+                process_golden_cookie_spawn_at_current_time(future_events);
             }
 
             if (state.current_simulation_time + time_epsilon >= purchase_end_timestamp)
@@ -175,7 +178,9 @@ StepResult Env::step(const Action &action)
             }
         }
 
-        if (!episode_ended)
+        if (!episode_ended &&
+            purchase_intention.canAfford &&
+            !has_purchase_completed)
         {
             // T2
             buildingSystem.makePurchase(state, purchase_intention);
@@ -222,6 +227,7 @@ Observation Env::get_observation()
 {
     Observation obs{};
 
+    obs.current_simulation_time = state.current_simulation_time;
     obs.current_cookies = state.current_cookies,
     obs.all_time_cookies = state.alltime_cookies,
     obs.total_cps = economySystem.calculateEffectiveCPS(state, true);

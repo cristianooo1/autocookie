@@ -21,6 +21,7 @@
 
 struct Observation
 {
+    double current_simulation_time{};
     double current_cookies{};
     double all_time_cookies{};
     double total_cps{};
@@ -39,6 +40,8 @@ struct StepResult
     double reward;
     bool done;
 };
+
+struct EnvTestAccess;
 
 class Env
 {
@@ -65,6 +68,8 @@ private:
     BuildingSystem buildingSystem;
     EventSystem eventSystem;
     SimulationSystem simulationSystem;
+
+    friend struct EnvTestAccess;
 
     double prev_progress_alltime_cookies{0.0};
     double prev_progress_cps{0.0};

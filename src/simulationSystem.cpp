@@ -101,8 +101,8 @@ std::vector<NextScheduledEvent> SimulationSystem::getTimeNextInternalEvents(
 
 std::vector<NextScheduledEvent> SimulationSystem::getEarliestEvent(const std::vector<NextScheduledEvent> &future_events)
 {
-    constexpr double time_epsilon = 1e-9;
-    double earliest_event = Config::episode_length;
+
+    double earliest_event = std::numeric_limits<double>::infinity();
 
     for (const NextScheduledEvent &event : future_events)
     {
@@ -113,7 +113,7 @@ std::vector<NextScheduledEvent> SimulationSystem::getEarliestEvent(const std::ve
 
     for (const NextScheduledEvent &event : future_events)
     {
-        if (std::abs(event.absolute_timestamp - earliest_event) <= time_epsilon)
+        if (event.absolute_timestamp == earliest_event)
         {
             earliest_events.push_back(event);
         }
