@@ -94,7 +94,7 @@ std::vector<NextScheduledEvent> SimulationSystem::getTimeNextDecision(
 
     constexpr std::array<int, 3> quantities{1, 10, 100};
 
-    for (int i = 0; i < +BuildingType::BUILDING_COUNT; i++)
+    for (int i = 0; i < +BuildingType::BUILDING_COUNT; ++i)
     {
         for (const int quantity : quantities)
         {

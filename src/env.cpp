@@ -514,7 +514,7 @@ Observation Env::get_observation()
     obs.total_cps = economySystem.calculateEffectiveCPS(state, true);
     obs.buildings_owned = state.buildingsOwned;
 
-    for (int i = 0; i < +BuildingType::BUILDING_COUNT; i++)
+    for (int i = 0; i < +BuildingType::BUILDING_COUNT; ++i)
     {
         obs.can_buy_1[i] = buildingSystem.canBuy(state, i, 1);
         obs.can_buy_10[i] = buildingSystem.canBuy(state, i, 10);

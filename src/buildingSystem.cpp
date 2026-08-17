@@ -37,33 +37,50 @@ double BuildingSystem::calculateTotalPrice(
     validateBuildingIndex(buildingIndex);
     validateQuantity(quantity);
 
-    double first_price =
-        buildingsDefinitions[buildingIndex].base_cost *
-        std::pow(
-            1.15,
-            static_cast<double>(state.buildingsOwned[buildingIndex]));
+    double raw_first_price = buildingsDefinitions[static_cast<std::size_t>(buildingIndex)].base_cost *
+                             std::pow(
+                                 Config::building_price_growth,
+                                 static_cast<double>(state.buildingsOwned[static_cast<std::size_t>(buildingIndex)]));
 
 #ifndef NDEBUG
-    assert(std::isfinite(first_price));
-    assert(first_price > 0.0);
+    assert(std::isfinite(raw_first_price));
+    assert(raw_first_price > 0.0);
 #endif
+
+    double raw_total_price = 0.0;
 
     switch (quantity)
     {
     case 1:
-        return first_price;
+        raw_total_price = raw_first_price;
+        break;
 
     case 10:
-        return first_price *
-               Config::building_price_multiplier_buy_10;
+        raw_total_price =
+            raw_first_price *
+            Config::building_price_multiplier_buy_10;
+        break;
 
     case 100:
-        return first_price *
-               Config::building_price_multiplier_buy_100;
+        raw_total_price =
+            raw_first_price *
+            Config::building_price_multiplier_buy_100;
+        break;
 
     default:
-        throw std::invalid_argument("INVALID QUANTITY! ONLY x1, x10, x100");
+        throw std::invalid_argument(
+            "INVALID QUANTITY! ONLY x1, x10, x100");
     }
+
+    // round upwards
+    double total_price = std::ceil(raw_total_price);
+
+#ifndef NDEBUG
+    assert(std::isfinite(total_price));
+    assert(total_price > 0.0);
+#endif
+
+    return total_price;
 }
 
 PurchaseIntent BuildingSystem::validatePurchase(

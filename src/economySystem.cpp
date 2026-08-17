@@ -18,7 +18,7 @@ double EconomySystem::calculateEffectiveCPS(
     */
 
     double building_cps = 0.0;
-    for (int i = 0; i < +BuildingType::BUILDING_COUNT; i++)
+    for (int i = 0; i < +BuildingType::BUILDING_COUNT; ++i)
     {
         building_cps += static_cast<double>(state.buildingsOwned[i]) *
                         buildingsDefinitions[i].base_cps;

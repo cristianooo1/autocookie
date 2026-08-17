@@ -18,9 +18,11 @@ struct GameState
     double cookies_per_click{1.0};
 
     /*
-    0 -> cursor
-    1 -> grandma
-    2 -> farm
+    0 -> Cursor
+    1 -> Grandma
+    2 -> Farm
+    3 -> Mine
+    4 -> Factory
     */
     std::array<int, +BuildingType::BUILDING_COUNT> buildingsOwned{};
 

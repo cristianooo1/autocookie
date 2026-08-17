@@ -21,18 +21,16 @@
 
 struct Observation
 {
-    double current_simulation_time{};
-    double current_cookies{};
-    double all_time_cookies{};
-    double total_cps{};
+    double current_simulation_time{0.0};
+    double current_cookies{0.0};
+    double all_time_cookies{0.0};
+    double total_cps{0.0};
     std::array<int, +BuildingType::BUILDING_COUNT> buildings_owned{};
 
     std::array<bool, +BuildingType::BUILDING_COUNT> can_buy_1{};
     std::array<bool, +BuildingType::BUILDING_COUNT> can_buy_10{};
     std::array<bool, +BuildingType::BUILDING_COUNT> can_buy_100{};
 
-    // only have active buffs observable
-    // keep internal start/expiration timestamps hidden from agent
     std::vector<GoldenCookieBuff> activeGoldenCookieBuffs{};
 };
 

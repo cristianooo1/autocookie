@@ -30,9 +30,14 @@ namespace Config
 
     constexpr double progress_shaping_beta{0.1};
 
+    // these are the geometrics sums
+    // 1 + 1.15 + 1.15² + ... + 1.15⁹
     constexpr double building_price_multiplier_buy_10{20.303718238};
+
+    // 1 + 1.15 + 1.15² + ... + 1.15⁹⁹
     constexpr double building_price_multiplier_buy_100{7828749.671335256};
 
+    constexpr double building_price_growth{1.15};
     constexpr double buying_time_cost{0.2};
 
     constexpr double clicking_frequency{5.0};
