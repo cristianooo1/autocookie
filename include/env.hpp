@@ -16,6 +16,7 @@
 #include "economySystem.hpp"
 #include "simulationSystem.hpp"
 #include "eventSystem.hpp"
+#include "upgradeSystem.hpp"
 
 #include "eventTypes.hpp"
 
@@ -32,6 +33,10 @@ struct Observation
     std::array<bool, +BuildingType::BUILDING_COUNT> can_buy_100{};
 
     std::vector<GoldenCookieBuff> activeGoldenCookieBuffs{};
+
+    std::array<bool, +UpgradeType::UPGRADE_COUNT> upgrades_owned{};
+    std::array<bool, +UpgradeType::UPGRADE_COUNT> upgrades_unlocked{};
+    std::array<bool, +UpgradeType::UPGRADE_COUNT> can_buy_upgrades{};
 };
 
 struct StepResult
@@ -72,6 +77,7 @@ private:
     BuildingSystem buildingSystem;
     EventSystem eventSystem;
     SimulationSystem simulationSystem;
+    UpgradeSystem upgradeSystem;
 
     friend struct EnvTestAccess;
 

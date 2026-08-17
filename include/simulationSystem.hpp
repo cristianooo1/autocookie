@@ -8,6 +8,7 @@
 #include "buildingSystem.hpp"
 #include "eventSystem.hpp"
 #include "economySystem.hpp"
+#include "upgradeSystem.hpp"
 
 #include "eventTypes.hpp"
 
@@ -19,6 +20,7 @@ public:
     std::vector<NextScheduledEvent> getTimeNextDecision(
         GameState &state,
         BuildingSystem &building_system,
+        UpgradeSystem &upgrade_system,
         EventSystem &event_system,
         double rate);
 

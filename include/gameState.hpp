@@ -28,5 +28,5 @@ struct GameState
 
     std::vector<ActiveGoldenCookieBuff> activeGoldenCookieBuffs{};
 
-    // upgrades_owned
+    std::array<bool, +UpgradeType::UPGRADE_COUNT> upgradesOwned{};
 };

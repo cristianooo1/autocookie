@@ -85,6 +85,7 @@ SimulationSystem::SimulationSystem()
 std::vector<NextScheduledEvent> SimulationSystem::getTimeNextDecision(
     GameState &state,
     BuildingSystem &building_system,
+    UpgradeSystem &upgrade_system,
     EventSystem &event_system,
     double rate)
 {
@@ -112,6 +113,26 @@ std::vector<NextScheduledEvent> SimulationSystem::getTimeNextDecision(
         future_scheduled_events.push_back(NextScheduledEvent{
             .event_type = WakeUpDecisionEventType::BuildingAvailable,
             .absolute_timestamp = next_affordable_building});
+    }
+
+    double next_affordable_upgrade = std::numeric_limits<double>::infinity();
+
+    for (int i = 0; i < +UpgradeType::UPGRADE_COUNT; ++i)
+    {
+        const double timestamp = upgrade_system.getAbsoluteTimestampNextAffordableUpgrade(
+            state,
+            i,
+            rate);
+
+        next_affordable_upgrade = std::min(next_affordable_upgrade, timestamp);
+    }
+
+    if (std::isfinite(next_affordable_upgrade))
+    {
+        future_scheduled_events.push_back(NextScheduledEvent{
+            .event_type = WakeUpDecisionEventType::UpgradeAvailable,
+            .absolute_timestamp = next_affordable_upgrade,
+        });
     }
 
     future_scheduled_events.push_back(NextScheduledEvent{

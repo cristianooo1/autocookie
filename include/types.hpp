@@ -56,10 +56,51 @@ enum class BuyingQuantity
     ONE_HUNDRED = 100,
 };
 
+inline constexpr std::array<BuyingQuantity, 3>
+    buyingQuantities{
+        BuyingQuantity::ONE,
+        BuyingQuantity::TEN,
+        BuyingQuantity::ONE_HUNDRED,
+    };
+
+inline constexpr int purchaseQuantityCount{static_cast<int>(buyingQuantities.size())};
+
+inline constexpr int buildingPurchaseActionCount{static_cast<int>(BuildingType::BUILDING_COUNT) * purchaseQuantityCount};
+
+enum class UpgradeType
+{
+    /*
+    THESE ARE THE ONLY UPGRADES THAT CAN BE PURCHASED IN THE 1MIL COOKIE SCENARIO
+    THERE ARE STILL SOME THAT ARE NOT IMPLEMENTED
+    */
+
+    // CURSOR
+    REINFORCED_INDEX_FINGER = 0,
+    CARPAL_TUNNEL_PREVENTION_CREAM,
+    AMBIDEXTROUS,
+    THOUSAND_FINGERS,
+
+    // GRANDMA
+    FORWARDS_FROM_GRANDMA,
+    STEEL_PLATED_ROLLING_PINS,
+    LUBRICATED_DENTURES,
+
+    // FARM
+    CHEAP_HOES,
+    FERTILIZER,
+    COOKIE_TREES,
+
+    // MINE
+    SUGAR_GAS,
+
+    UPGRADE_COUNT,
+};
+
 enum class ActionType
 {
     Advance,
     BuyBuilding,
+    BuyUpgrade,
 };
 
 struct Action
@@ -67,6 +108,7 @@ struct Action
     ActionType type{};
     BuildingType buildingIndex{};
     BuyingQuantity quantity{};
+    UpgradeType upgradeIndex{};
 };
 
 struct PurchaseIntent
@@ -77,30 +119,33 @@ struct PurchaseIntent
     double totalPrice{0.0};
 };
 
+struct UpgradePurchaseIntent
+{
+    bool canPurchase{false};
+    UpgradeType upgradeIndex{};
+    double price{0.0};
+};
+
 /*
 DISCRETE ACTION LAYOUT
 NECESSARY FOR RL TRAINING
 
-0       Advance
-1-3     Cursor x1, x10, x100
-4-6     Grandma x1, x10, x100
-7-9     Farm x1, x10, x100
-10-12   Mine x1, x10, x100
-13-15   Factory x1, x10, x100
+1 advance
+15 building purchases
+11 upgrade purchases
+27 total actions
 
 */
 
-inline constexpr std::array<BuyingQuantity, 3> buyingQuantities{
-    BuyingQuantity::ONE,
-    BuyingQuantity::TEN,
-    BuyingQuantity::ONE_HUNDRED,
-};
+inline constexpr int upgradeActionOffset{
+    1 + buildingPurchaseActionCount};
 
-inline constexpr int purchaseQuantityCount{static_cast<int>(buyingQuantities.size())};
+inline constexpr int discreteActionCount{
+    upgradeActionOffset +
+    static_cast<int>(UpgradeType::UPGRADE_COUNT)};
 
-inline constexpr int discreteActionCount{1 + +BuildingType::BUILDING_COUNT * purchaseQuantityCount};
-
-inline Action actionFromDiscreteIndex(const int action_index)
+inline Action actionFromDiscreteIndex(
+    const int action_index)
 {
     if (action_index < 0 ||
         action_index >= discreteActionCount)
@@ -116,17 +161,35 @@ inline Action actionFromDiscreteIndex(const int action_index)
         };
     }
 
-    const int purchase_index = action_index - 1;
+    if (action_index < upgradeActionOffset)
+    {
+        const int purchase_index =
+            action_index - 1;
 
-    const int building_index =
-        purchase_index / purchaseQuantityCount;
+        const int building_index =
+            purchase_index /
+            purchaseQuantityCount;
 
-    const int quantity_index =
-        purchase_index % purchaseQuantityCount;
+        const int quantity_index =
+            purchase_index %
+            purchaseQuantityCount;
+
+        return Action{
+            .type = ActionType::BuyBuilding,
+            .buildingIndex =
+                static_cast<BuildingType>(
+                    building_index),
+            .quantity =
+                buyingQuantities[static_cast<std::size_t>(
+                    quantity_index)],
+        };
+    }
 
     return Action{
-        .type = ActionType::BuyBuilding,
-        .buildingIndex = static_cast<BuildingType>(building_index),
-        .quantity = buyingQuantities[static_cast<std::size_t>(quantity_index)],
+        .type = ActionType::BuyUpgrade,
+        .upgradeIndex =
+            static_cast<UpgradeType>(
+                action_index -
+                upgradeActionOffset),
     };
 }

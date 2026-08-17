@@ -236,6 +236,7 @@ StepResult Env::step(const Action &action)
         std::vector<NextScheduledEvent> future_events = simulationSystem.getTimeNextDecision(
             state,
             buildingSystem,
+            upgradeSystem,
             eventSystem,
             rate);
         double next_timestamp = future_events.at(0).absolute_timestamp;
@@ -281,17 +282,56 @@ StepResult Env::step(const Action &action)
             }
         }
     }
-    else if (action.type == ActionType::BuyBuilding)
+    else if (action.type == ActionType::BuyBuilding ||
+             action.type == ActionType::BuyUpgrade)
     {
         // START = T1
-        PurchaseIntent purchase_intention = buildingSystem.validatePurchase(state, action);
+
+        PurchaseIntent building_purchase{};
+        UpgradePurchaseIntent upgrade_purchase{};
+
+        bool quoted_can_complete = false;
+
+        if (action.type == ActionType::BuyBuilding)
+        {
+            building_purchase = buildingSystem.validatePurchase(state, action);
+
+            quoted_can_complete = building_purchase.canAfford;
+        }
+        else
+        {
+            upgrade_purchase = upgradeSystem.validatePurchase(state, action);
+
+            quoted_can_complete = upgrade_purchase.canPurchase;
+        }
+
+        auto complete_quoted_purchase =
+            [&]()
+        {
+            if (action.type ==
+                ActionType::BuyBuilding)
+            {
+                buildingSystem.makePurchase(
+                    state,
+                    building_purchase);
+            }
+            else
+            {
+                upgradeSystem.makePurchase(
+                    state,
+                    upgrade_purchase);
+            }
+        };
 
         bool clicking = false;
         bool has_purchase_completed = false;
         double purchase_end_timestamp = state.current_simulation_time + Config::buying_time_cost;
 
 #ifndef NDEBUG
-        assert(std::isfinite(purchase_end_timestamp));
+        assert(
+            std::isfinite(
+                purchase_end_timestamp));
+
         assert(
             purchase_end_timestamp >
             state.current_simulation_time);
@@ -311,13 +351,7 @@ StepResult Env::step(const Action &action)
                 rate);
 
             double internal_timestamp = future_events.at(0).absolute_timestamp;
-#ifndef NDEBUG
-            assert(!future_events.empty());
-            assert(std::isfinite(internal_timestamp));
-            assert(
-                internal_timestamp >
-                state.current_simulation_time);
-#endif
+
             double next_timestamp = std::min(purchase_end_timestamp, internal_timestamp);
 
 #ifndef NDEBUG
@@ -371,13 +405,9 @@ StepResult Env::step(const Action &action)
                 // expiration -> purchase completion -> spawn.
                 remove_expired_buffs_at_current_time(future_events);
 
-                if (next_timestamp == purchase_end_timestamp &&
-                    purchase_intention.canAfford)
+                if (next_timestamp == purchase_end_timestamp && quoted_can_complete)
                 {
-                    buildingSystem.makePurchase(
-                        state,
-                        purchase_intention);
-
+                    complete_quoted_purchase();
                     has_purchase_completed = true;
                 }
 
@@ -389,20 +419,24 @@ StepResult Env::step(const Action &action)
                     break;
                 }
             }
+
+            if (state.current_simulation_time >= purchase_end_timestamp)
+            {
+                break;
+            }
         }
 
         if (!episode_ended &&
             state.alltime_cookies < Config::target_cookies &&
-            purchase_intention.canAfford &&
+            quoted_can_complete &&
             !has_purchase_completed)
         {
-            buildingSystem.makePurchase(
-                state,
-                purchase_intention);
+            complete_quoted_purchase();
         }
 
 #ifndef NDEBUG
-        if (state.alltime_cookies >= Config::target_cookies)
+        if (state.alltime_cookies >=
+            Config::target_cookies)
         {
             assert(
                 state.current_simulation_time <=
@@ -536,6 +570,18 @@ Observation Env::get_observation()
         {
             obs.activeGoldenCookieBuffs.push_back(buff_type);
         }
+    }
+
+    for (int i = 0; i < +UpgradeType::UPGRADE_COUNT; ++i)
+    {
+        obs.upgrades_owned[static_cast<std::size_t>(i)] =
+            state.upgradesOwned[static_cast<std::size_t>(i)];
+
+        obs.upgrades_unlocked[static_cast<std::size_t>(i)] =
+            upgradeSystem.isUnlocked(state, i);
+
+        obs.can_buy_upgrades[static_cast<std::size_t>(i)] =
+            upgradeSystem.canBuy(state, i);
     }
     return obs;
 }

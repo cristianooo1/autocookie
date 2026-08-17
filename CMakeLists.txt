@@ -84,6 +84,7 @@ set(CORE_SOURCES
     src/economySystem.cpp
     src/simulationSystem.cpp
     src/eventSystem.cpp   
+    src/upgradeSystem.cpp
 )
 
 # CORE
