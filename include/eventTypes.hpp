@@ -18,8 +18,7 @@ enum class WakeUpDecisionEventType
     UpgradeAvailable,
     GoldenCookieSpawned,
     GoldenCookieBuffExpiration,
-    WrinkleSpawned,
-    BuffExpiration,
+    TargetBoundary,
     EpisodeBoundary,
 
     EVENT_COUNT,

@@ -38,9 +38,13 @@ struct Observation
 
 struct StepResult
 {
-    Observation obs;
-    double reward;
-    bool done;
+    Observation obs{};
+    double reward{0.0};
+
+    bool terminated{false};
+    bool truncated{false};
+
+    bool done{false};
 };
 
 struct EnvTestAccess;
@@ -73,6 +77,7 @@ private:
 
     friend struct EnvTestAccess;
 
+    double prev_reward_time{0.0};
     double prev_progress_alltime_cookies{0.0};
     double prev_progress_cps{0.0};
 };

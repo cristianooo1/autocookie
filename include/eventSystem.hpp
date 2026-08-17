@@ -42,6 +42,5 @@ private:
 
     bool scripted_golden_cookies_enabled_{false};
 
-    std::deque<ScriptedGoldenCookie>
-        scripted_golden_cookies_{};
+    std::deque<ScriptedGoldenCookie> scripted_golden_cookies_{};
 };

@@ -69,8 +69,8 @@ namespace
 
             assert(buff.expires_at >= state.current_simulation_time);
 
-            if (state.current_simulation_time <
-                Config::episode_length)
+            if (state.current_simulation_time < Config::episode_length &&
+                state.alltime_cookies < Config::target_cookies)
             {
                 assert(
                     buff.expires_at >
@@ -105,10 +105,19 @@ StepResult Env::step(const Action &action)
 
     if (is_terminal())
     {
+        const bool terminated =
+            state.alltime_cookies >= Config::target_cookies;
+
+        const bool truncated =
+            state.current_simulation_time >=
+            Config::episode_length;
+
         return StepResult{
             .obs = get_observation(),
             .reward = 0.0,
-            .done = true,
+            .terminated = terminated,
+            .truncated = truncated,
+            .done = terminated || truncated,
         };
     }
 
@@ -127,6 +136,28 @@ StepResult Env::step(const Action &action)
             {
                 return event.event_type == type;
             });
+    };
+
+    /*
+    HELPER FUNCTION
+    removes tiny floating-point error
+    */
+    auto snap_to_target_boundary =
+        [&]()
+    {
+        const double correction =
+            Config::target_cookies - state.alltime_cookies;
+
+        state.current_cookies += correction;
+        state.alltime_cookies = Config::target_cookies;
+
+#ifndef NDEBUG
+        assert(std::isfinite(state.current_cookies));
+        assert(state.current_cookies >= 0.0);
+        assert(
+            state.alltime_cookies ==
+            Config::target_cookies);
+#endif
     };
 
     /*
@@ -236,7 +267,18 @@ StepResult Env::step(const Action &action)
         }
         else
         {
-            process_events_at_current_time(future_events);
+            if (is_event_here(
+                    future_events,
+                    WakeUpDecisionEventType::TargetBoundary))
+            {
+                snap_to_target_boundary();
+            }
+
+            if (state.alltime_cookies <
+                Config::target_cookies)
+            {
+                process_events_at_current_time(future_events);
+            }
         }
     }
     else if (action.type == ActionType::BuyBuilding)
@@ -260,7 +302,13 @@ StepResult Env::step(const Action &action)
         {
             // t1 -> event.timestamp -> t2 = buy_building
 
-            std::vector<NextScheduledEvent> future_events = simulationSystem.getTimeNextInternalEvents(state, eventSystem);
+            double rate =
+                economySystem.calculateEffectiveCPS(state, false);
+
+            std::vector<NextScheduledEvent> future_events = simulationSystem.getTimeNextInternalEvents(
+                state,
+                eventSystem,
+                rate);
 
             double internal_timestamp = future_events.at(0).absolute_timestamp;
 #ifndef NDEBUG
@@ -292,44 +340,75 @@ StepResult Env::step(const Action &action)
             // process all events at event.timestamp
             bool is_internal_timestamp_reached = internal_timestamp == next_timestamp;
 
+            if (is_internal_timestamp_reached &&
+                is_event_here(
+                    future_events,
+                    WakeUpDecisionEventType::EpisodeBoundary))
+            {
+
+                state.current_simulation_time =
+                    Config::episode_length;
+
+                episode_ended = true;
+                break;
+            }
+
+            if (is_internal_timestamp_reached &&
+                is_event_here(
+                    future_events,
+                    WakeUpDecisionEventType::TargetBoundary))
+            {
+                snap_to_target_boundary();
+            }
+
+            if (state.alltime_cookies >= Config::target_cookies)
+            {
+                break;
+            }
+
             if (is_internal_timestamp_reached)
             {
-                if (is_event_here(future_events, WakeUpDecisionEventType::EpisodeBoundary))
-                {
-                    state.current_simulation_time = Config::episode_length;
-                    episode_ended = true;
-                    break;
-                }
-
-                // at new timestamp != episode_finish, order is: expiration -> purchase_complete -> new spawn
+                // expiration -> purchase completion -> spawn.
                 remove_expired_buffs_at_current_time(future_events);
 
                 if (next_timestamp == purchase_end_timestamp &&
                     purchase_intention.canAfford)
                 {
-                    buildingSystem.makePurchase(state, purchase_intention);
+                    buildingSystem.makePurchase(
+                        state,
+                        purchase_intention);
+
                     has_purchase_completed = true;
                 }
 
-                process_golden_cookie_spawn_at_current_time(future_events);
-            }
+                process_golden_cookie_spawn_at_current_time(
+                    future_events);
 
-            if (state.current_simulation_time >= purchase_end_timestamp)
-            {
-                break;
+                if (state.alltime_cookies >= Config::target_cookies)
+                {
+                    break;
+                }
             }
         }
 
         if (!episode_ended &&
+            state.alltime_cookies < Config::target_cookies &&
             purchase_intention.canAfford &&
             !has_purchase_completed)
         {
-            // T2
-            buildingSystem.makePurchase(state, purchase_intention);
+            buildingSystem.makePurchase(
+                state,
+                purchase_intention);
         }
 
 #ifndef NDEBUG
-        if (!episode_ended)
+        if (state.alltime_cookies >= Config::target_cookies)
+        {
+            assert(
+                state.current_simulation_time <=
+                purchase_end_timestamp);
+        }
+        else if (!episode_ended)
         {
             assert(
                 state.current_simulation_time ==
@@ -364,10 +443,21 @@ StepResult Env::step(const Action &action)
             true));
 #endif
 
+    bool terminated =
+        state.alltime_cookies >= Config::target_cookies;
+
+    bool truncated =
+        state.current_simulation_time >=
+        Config::episode_length;
+
+    double reward = get_reward();
+
     return StepResult{
         .obs = get_observation(),
-        .reward = get_reward(),
-        .done = is_terminal() || episode_ended,
+        .reward = reward,
+        .terminated = terminated,
+        .truncated = truncated,
+        .done = terminated || truncated,
     };
 }
 
@@ -388,7 +478,10 @@ Observation Env::reset(std::optional<unsigned int> seed)
 
     state.total_cps = economySystem.calculateEffectiveCPS(state, true);
 
+    this->prev_reward_time = state.current_simulation_time;
+
     this->prev_progress_alltime_cookies = state.alltime_cookies;
+
     this->prev_progress_cps = state.total_cps;
 
 #ifndef NDEBUG
@@ -449,15 +542,70 @@ Observation Env::get_observation()
 
 double Env::get_reward()
 {
-    double current_cps = economySystem.calculateEffectiveCPS(state, true);
-    double reward = (state.alltime_cookies - prev_progress_alltime_cookies) + (current_cps - prev_progress_cps) * 5.0;
+    const double current_cps =
+        economySystem.calculateEffectiveCPS(state, true);
+
+    const double delta_t =
+        state.current_simulation_time -
+        prev_reward_time;
+
+    const bool success =
+        state.alltime_cookies >= Config::target_cookies;
+
+    const double base_reward =
+        -delta_t / Config::episode_length +
+        (success ? 1.0 : 0.0);
+
+    auto progress_potential =
+        [](const double alltime_cookies)
+    {
+        const double capped_cookies =
+            std::min(
+                alltime_cookies,
+                Config::target_cookies);
+
+        return std::log1p(capped_cookies) /
+               std::log1p(Config::target_cookies);
+    };
+
+    double reward = 0.0;
+
+    switch (Config::reward_mode)
+    {
+    case Config::RewardMode::TimeSuccess:
+        reward = base_reward;
+        break;
+
+    case Config::RewardMode::TimeSuccessLogPotential:
+        reward =
+            base_reward +
+            Config::progress_shaping_beta *
+                (progress_potential(state.alltime_cookies) -
+                 progress_potential(
+                     prev_progress_alltime_cookies));
+        break;
+
+    case Config::RewardMode::OriginalCookiesPlusCps:
+        reward =
+            (state.alltime_cookies -
+             prev_progress_alltime_cookies) +
+            (current_cps - prev_progress_cps) * 5.0;
+        break;
+    }
 
 #ifndef NDEBUG
+    assert(std::isfinite(delta_t));
+    assert(delta_t >= 0.0);
     assert(std::isfinite(current_cps));
     assert(std::isfinite(reward));
 #endif
 
-    prev_progress_alltime_cookies = state.alltime_cookies;
+    prev_reward_time =
+        state.current_simulation_time;
+
+    prev_progress_alltime_cookies =
+        state.alltime_cookies;
+
     prev_progress_cps = current_cps;
 
     return reward;
@@ -465,14 +613,14 @@ double Env::get_reward()
 
 bool Env::is_terminal()
 {
-    if (state.current_simulation_time >= Config::episode_length)
-    {
-        return true;
-    }
-    else
-    {
-        return false;
-    }
+    const bool terminated =
+        state.alltime_cookies >= Config::target_cookies;
+
+    const bool truncated =
+        state.current_simulation_time >=
+        Config::episode_length;
+
+    return terminated || truncated;
 }
 
 std::tuple<double, double, double, double, int, int, int> Env::queryState()

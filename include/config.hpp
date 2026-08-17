@@ -16,7 +16,19 @@ constexpr auto operator+(T a) noexcept
 
 namespace Config
 {
-    constexpr double episode_length{5000.0};
+    enum class RewardMode
+    {
+        TimeSuccess,
+        TimeSuccessLogPotential,
+        OriginalCookiesPlusCps,
+    };
+    // MODIFY THIS TO CHANGE REWARD MODE !!!!!!!!!!!!!!!!
+    constexpr RewardMode reward_mode{RewardMode::TimeSuccessLogPotential};
+
+    constexpr double episode_length{50000.0};
+    constexpr double target_cookies{1000000.0};
+
+    constexpr double progress_shaping_beta{0.1};
 
     constexpr double building_price_multiplier_buy_10{20.303718238};
     constexpr double building_price_multiplier_buy_100{7828749.671335256};

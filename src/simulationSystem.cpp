@@ -7,6 +7,46 @@
 
 #include "simulationSystem.hpp"
 
+// HELPER FUNCTION
+namespace
+{
+    double getAbsoluteTargetCrossingTimestamp(
+        const GameState &state,
+        const double rate)
+    {
+#ifndef NDEBUG
+        assert(std::isfinite(state.current_simulation_time));
+        assert(std::isfinite(state.alltime_cookies));
+        assert(std::isfinite(rate));
+        assert(rate >= 0.0);
+#endif
+
+        if (rate <= 0.0 ||
+            state.alltime_cookies >= Config::target_cookies)
+        {
+            return std::numeric_limits<double>::infinity();
+        }
+
+        double timestamp =
+            state.current_simulation_time +
+            (Config::target_cookies - state.alltime_cookies) / rate;
+
+        if (!std::isfinite(timestamp))
+        {
+            return std::numeric_limits<double>::infinity();
+        }
+
+        if (timestamp <= state.current_simulation_time)
+        {
+            timestamp = std::nextafter(
+                state.current_simulation_time,
+                std::numeric_limits<double>::infinity());
+        }
+
+        return timestamp;
+    }
+}
+
 #ifndef NDEBUG
 namespace
 {
@@ -93,6 +133,17 @@ std::vector<NextScheduledEvent> SimulationSystem::getTimeNextDecision(
             .absolute_timestamp = next_expiration});
     }
 
+    const double target_timestamp =
+        getAbsoluteTargetCrossingTimestamp(state, rate);
+
+    if (std::isfinite(target_timestamp))
+    {
+        future_scheduled_events.push_back(NextScheduledEvent{
+            .event_type =
+                WakeUpDecisionEventType::TargetBoundary,
+            .absolute_timestamp = target_timestamp});
+    }
+
     future_scheduled_events.push_back(NextScheduledEvent{
         .event_type = WakeUpDecisionEventType::EpisodeBoundary,
         .absolute_timestamp = Config::episode_length});
@@ -108,7 +159,8 @@ std::vector<NextScheduledEvent> SimulationSystem::getTimeNextDecision(
 
 std::vector<NextScheduledEvent> SimulationSystem::getTimeNextInternalEvents(
     GameState &state,
-    EventSystem &event_system)
+    EventSystem &event_system,
+    double rate)
 {
     std::vector<NextScheduledEvent> future_events;
 
@@ -128,6 +180,16 @@ std::vector<NextScheduledEvent> SimulationSystem::getTimeNextInternalEvents(
         future_events.push_back(NextScheduledEvent{
             .event_type = WakeUpDecisionEventType::GoldenCookieBuffExpiration,
             .absolute_timestamp = next_expiration});
+    }
+
+    const double target_timestamp = getAbsoluteTargetCrossingTimestamp(state, rate);
+
+    if (std::isfinite(target_timestamp))
+    {
+        future_events.push_back(NextScheduledEvent{
+            .event_type =
+                WakeUpDecisionEventType::TargetBoundary,
+            .absolute_timestamp = target_timestamp});
     }
 
     future_events.push_back(NextScheduledEvent{

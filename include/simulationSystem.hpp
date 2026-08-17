@@ -24,7 +24,8 @@ public:
 
     std::vector<NextScheduledEvent> getTimeNextInternalEvents(
         GameState &state,
-        EventSystem &event_system);
+        EventSystem &event_system,
+        double rate);
 
     std::vector<NextScheduledEvent> getEarliestEvent(const std::vector<NextScheduledEvent> &future_events);
 
