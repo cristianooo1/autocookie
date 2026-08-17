@@ -16,6 +16,7 @@ struct GameState
     double alltime_cookies{0.0};
     double total_cps{0.0};
     double cookies_per_click{1.0};
+    double handmade_cookies{0.0};
 
     /*
     0 -> Cursor

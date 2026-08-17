@@ -22,7 +22,8 @@ public:
         BuildingSystem &building_system,
         UpgradeSystem &upgrade_system,
         EventSystem &event_system,
-        double rate);
+        double rate,
+        double clicking_rate = 0.0);
 
     std::vector<NextScheduledEvent> getTimeNextInternalEvents(
         GameState &state,

@@ -37,6 +37,8 @@ namespace Config
     // 1 + 1.15 + 1.15² + ... + 1.15⁹⁹
     constexpr double building_price_multiplier_buy_100{7828749.671335256};
 
+    constexpr double plastic_mouse_unlock_cookies{1000.0};
+
     constexpr double building_price_growth{1.15};
     constexpr double buying_time_cost{0.2};
 

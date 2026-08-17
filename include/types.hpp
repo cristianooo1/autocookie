@@ -71,7 +71,6 @@ enum class UpgradeType
 {
     /*
     THESE ARE THE ONLY UPGRADES THAT CAN BE PURCHASED IN THE 1MIL COOKIE SCENARIO
-    THERE ARE STILL SOME THAT ARE NOT IMPLEMENTED
     */
 
     // CURSOR
@@ -79,11 +78,13 @@ enum class UpgradeType
     CARPAL_TUNNEL_PREVENTION_CREAM,
     AMBIDEXTROUS,
     THOUSAND_FINGERS,
+    PLASTIC_MOUSE, // special for 1000 hand made cookies
 
     // GRANDMA
     FORWARDS_FROM_GRANDMA,
     STEEL_PLATED_ROLLING_PINS,
     LUBRICATED_DENTURES,
+    FARMER_GRANDMAS, // special for 15 farms and 1 grandma owned
 
     // FARM
     CHEAP_HOES,
@@ -92,6 +93,7 @@ enum class UpgradeType
 
     // MINE
     SUGAR_GAS,
+    MEGADRILL,
 
     UPGRADE_COUNT,
 };
@@ -132,9 +134,8 @@ NECESSARY FOR RL TRAINING
 
 1 advance
 15 building purchases
-11 upgrade purchases
-27 total actions
-
+14 upgrade purchases
+30 total actions
 */
 
 inline constexpr int upgradeActionOffset{

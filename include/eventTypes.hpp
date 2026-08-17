@@ -16,6 +16,7 @@ enum class WakeUpDecisionEventType
 {
     BuildingAvailable = 0,
     UpgradeAvailable,
+    UpgradeUnlocked,
     GoldenCookieSpawned,
     GoldenCookieBuffExpiration,
     TargetBoundary,

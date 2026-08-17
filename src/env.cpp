@@ -229,8 +229,16 @@ StepResult Env::step(const Action &action)
 
     if (action.type == ActionType::Advance)
     {
-        bool clicking = true;
-        double rate = economySystem.calculateEffectiveCPS(state, clicking);
+        const bool clicking = true;
+
+        const double passive_rate =
+            economySystem.calculateEffectiveCPS(state, false);
+
+        const double rate =
+            economySystem.calculateEffectiveCPS(state, true);
+
+        const double clicking_rate =
+            std::max(0.0, rate - passive_rate);
 
         // get closest future wakeup events = building affordable OR golden cookie spawn OR buff expiration
         std::vector<NextScheduledEvent> future_events = simulationSystem.getTimeNextDecision(
@@ -238,7 +246,8 @@ StepResult Env::step(const Action &action)
             buildingSystem,
             upgradeSystem,
             eventSystem,
-            rate);
+            rate,
+            clicking_rate);
         double next_timestamp = future_events.at(0).absolute_timestamp;
 
 #ifndef NDEBUG
@@ -257,6 +266,16 @@ StepResult Env::step(const Action &action)
         state.current_simulation_time = next_timestamp;
 
         // process all events and check for episode finish
+
+        if (is_event_here(
+                future_events,
+                WakeUpDecisionEventType::UpgradeUnlocked))
+        {
+            state.handmade_cookies =
+                std::max(
+                    state.handmade_cookies,
+                    Config::plastic_mouse_unlock_cookies);
+        }
         if (is_event_here(
                 future_events,
                 WakeUpDecisionEventType::EpisodeBoundary))
@@ -547,6 +566,8 @@ Observation Env::get_observation()
     obs.current_cookies = state.current_cookies;
 
     obs.all_time_cookies = state.alltime_cookies;
+
+    obs.handmade_cookies = state.handmade_cookies;
 
     obs.total_cps = economySystem.calculateEffectiveCPS(state, true);
 

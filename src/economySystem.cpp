@@ -65,6 +65,11 @@ namespace
                 multiplier *= 2.0;
             }
 
+            if (hasUpgrade(state, UpgradeType::FARMER_GRANDMAS))
+            {
+                multiplier *= 2.0;
+            }
+
             return multiplier;
 
         case BuildingType::FARM:
@@ -83,10 +88,23 @@ namespace
                 multiplier *= 2.0;
             }
 
+            if (hasUpgrade(state, UpgradeType::FARMER_GRANDMAS))
+            {
+                multiplier *=
+                    1.0 +
+                    0.01 * static_cast<double>(
+                               state.buildingsOwned[+BuildingType::GRANDMA]);
+            }
+
             return multiplier;
 
         case BuildingType::MINE:
             if (hasUpgrade(state, UpgradeType::SUGAR_GAS))
+            {
+                multiplier *= 2.0;
+            }
+
+            if (hasUpgrade(state, UpgradeType::MEGADRILL))
             {
                 multiplier *= 2.0;
             }
@@ -121,6 +139,33 @@ namespace
 
         return 0.1 * static_cast<double>(non_cursor_buildings);
     }
+
+    double calculatePassiveBuildingCPS(
+        const GameState &state)
+    {
+        double building_cps = 0.0;
+
+        const double thousand_fingers_bonus = getThousandFingersBonus(state);
+
+        for (int i = 0; i < +BuildingType::BUILDING_COUNT; ++i)
+        {
+            const BuildingType building = static_cast<BuildingType>(i);
+
+            double per_building_cps =
+                buildingsDefinitions[static_cast<std::size_t>(i)]
+                    .base_cps *
+                getBuildingMultiplier(state, building);
+
+            if (building == BuildingType::CURSOR)
+            {
+                per_building_cps += thousand_fingers_bonus;
+            }
+
+            building_cps += static_cast<double>(state.buildingsOwned[static_cast<std::size_t>(i)]) * per_building_cps;
+        }
+
+        return building_cps;
+    }
 }
 
 double EconomySystem::calculateEffectiveCPS(
@@ -133,24 +178,7 @@ double EconomySystem::calculateEffectiveCPS(
     effective_cps = base_cps * MULTIPLIERS (= upgrades, buffs)
     */
 
-    double building_cps = 0.0;
-    const double thousand_fingers_bonus = getThousandFingersBonus(state);
-    for (int i = 0; i < +BuildingType::BUILDING_COUNT; ++i)
-    {
-        const BuildingType building = static_cast<BuildingType>(i);
-
-        double per_building_cps = buildingsDefinitions[static_cast<std::size_t>(i)].base_cps *
-                                  getBuildingMultiplier(state, building);
-
-        if (building == BuildingType::CURSOR)
-        {
-            // THOUSAND FINGERS ONLY adds to each CURSOR after the
-            // first three Cursor doubling upgrades
-            per_building_cps += thousand_fingers_bonus;
-        }
-
-        building_cps += static_cast<double>(state.buildingsOwned[static_cast<std::size_t>(i)]) * per_building_cps;
-    };
+    const double building_cps = calculatePassiveBuildingCPS(state);
 
     double clicking_cps = 0.0;
     if (is_clicking_active)
@@ -221,8 +249,20 @@ void EconomySystem::integrateOverDT(
     assert(rate >= 0.0);
 #endif
 
+    double handmade_rate = 0.0;
+
+    if (is_clicking_active)
+    {
+        const double passive_rate =
+            calculateEffectiveCPS(state, false);
+
+        handmade_rate =
+            std::max(0.0, rate - passive_rate);
+    }
+
     state.current_cookies += rate * positive_dt;
     state.alltime_cookies += rate * positive_dt;
+    state.handmade_cookies += handmade_rate * positive_dt;
     state.total_cps = rate;
 
 #ifndef NDEBUG
@@ -239,6 +279,9 @@ void EconomySystem::integrateOverDT(
         previous_alltime_cookies);
 
     assert(state.total_cps >= 0.0);
+    assert(std::isfinite(state.handmade_cookies));
+    assert(state.handmade_cookies >= 0.0);
+    assert(state.handmade_cookies <= state.alltime_cookies);
 #endif
 }
 
@@ -246,7 +289,17 @@ double EconomySystem::calculateCookiesPerClick(const GameState &state)
 {
     // first three CURSOR upgrades double the base mouse cps
     // THOUSAND FINGERS is then added separately
-    const double cookies_per_click = state.cookies_per_click * getCursorMultiplier(state) + getThousandFingersBonus(state);
+    double cookies_per_click =
+        state.cookies_per_click *
+            getCursorMultiplier(state) +
+        getThousandFingersBonus(state);
+
+    if (hasUpgrade(state, UpgradeType::PLASTIC_MOUSE))
+    {
+        cookies_per_click +=
+            0.01 *
+            calculatePassiveBuildingCPS(state);
+    }
 
 #ifndef NDEBUG
     assert(std::isfinite(cookies_per_click));

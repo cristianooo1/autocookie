@@ -25,6 +25,7 @@ struct Observation
     double current_simulation_time{0.0};
     double current_cookies{0.0};
     double all_time_cookies{0.0};
+    double handmade_cookies{0.0};
     double total_cps{0.0};
 
     std::array<int, +BuildingType::BUILDING_COUNT> buildings_owned{};

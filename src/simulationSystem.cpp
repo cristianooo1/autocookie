@@ -87,7 +87,8 @@ std::vector<NextScheduledEvent> SimulationSystem::getTimeNextDecision(
     BuildingSystem &building_system,
     UpgradeSystem &upgrade_system,
     EventSystem &event_system,
-    double rate)
+    double rate,
+    double clicking_rate)
 {
     std::vector<NextScheduledEvent> future_scheduled_events{};
 
@@ -133,6 +134,40 @@ std::vector<NextScheduledEvent> SimulationSystem::getTimeNextDecision(
             .event_type = WakeUpDecisionEventType::UpgradeAvailable,
             .absolute_timestamp = next_affordable_upgrade,
         });
+    }
+
+    const std::size_t plastic_mouse_index =
+        static_cast<std::size_t>(
+            +UpgradeType::PLASTIC_MOUSE);
+
+    if (!state.upgradesOwned[plastic_mouse_index] &&
+        state.handmade_cookies <
+            Config::plastic_mouse_unlock_cookies &&
+        clicking_rate > 0.0)
+    {
+        double unlock_timestamp =
+            state.current_simulation_time +
+            (Config::plastic_mouse_unlock_cookies -
+             state.handmade_cookies) /
+                clicking_rate;
+
+        if (unlock_timestamp <=
+            state.current_simulation_time)
+        {
+            unlock_timestamp = std::nextafter(
+                state.current_simulation_time,
+                std::numeric_limits<double>::infinity());
+        }
+
+        if (std::isfinite(unlock_timestamp))
+        {
+            future_scheduled_events.push_back(
+                NextScheduledEvent{
+                    .event_type =
+                        WakeUpDecisionEventType::UpgradeUnlocked,
+                    .absolute_timestamp = unlock_timestamp,
+                });
+        }
     }
 
     future_scheduled_events.push_back(NextScheduledEvent{

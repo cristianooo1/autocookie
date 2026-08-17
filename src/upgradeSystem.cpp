@@ -24,6 +24,18 @@ bool UpgradeSystem::isUnlocked(
 {
     validateUpgradeIndex(upgradeIndex);
 
+    const UpgradeType upgrade = static_cast<UpgradeType>(upgradeIndex);
+
+    if (upgrade == UpgradeType::PLASTIC_MOUSE)
+    {
+        return state.handmade_cookies >= Config::plastic_mouse_unlock_cookies;
+    }
+
+    if (upgrade == UpgradeType::FARMER_GRANDMAS)
+    {
+        return state.buildingsOwned[+BuildingType::FARM] >= 15 && state.buildingsOwned[+BuildingType::GRANDMA] >= 1;
+    }
+
     const UpgradeDefinition &definition = upgradeDefinitions[static_cast<std::size_t>(upgradeIndex)];
 
     return state.buildingsOwned[+definition.requiredBuilding] >= definition.requiredBuildingCount;
