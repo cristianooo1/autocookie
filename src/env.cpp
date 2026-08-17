@@ -543,22 +543,45 @@ Observation Env::get_observation()
     Observation obs{};
 
     obs.current_simulation_time = state.current_simulation_time;
-    obs.current_cookies = state.current_cookies,
-    obs.all_time_cookies = state.alltime_cookies,
+
+    obs.current_cookies = state.current_cookies;
+
+    obs.all_time_cookies = state.alltime_cookies;
+
     obs.total_cps = economySystem.calculateEffectiveCPS(state, true);
+
     obs.buildings_owned = state.buildingsOwned;
 
-    for (int i = 0; i < +BuildingType::BUILDING_COUNT; ++i)
+    // BUILDING affordability
+    for (int building_index = 0; building_index < +BuildingType::BUILDING_COUNT; ++building_index)
     {
-        obs.can_buy_1[i] = buildingSystem.canBuy(state, i, 1);
-        obs.can_buy_10[i] = buildingSystem.canBuy(state, i, 10);
-        obs.can_buy_100[i] = buildingSystem.canBuy(state, i, 100);
+        const std::size_t index = static_cast<std::size_t>(building_index);
+
+        obs.can_buy_1[index] = buildingSystem.canBuy(state, building_index, 1);
+
+        obs.can_buy_10[index] = buildingSystem.canBuy(state, building_index, 10);
+
+        obs.can_buy_100[index] = buildingSystem.canBuy(state, building_index, 100);
     }
 
-    for (int i = 0; i < +GoldenCookieBuff::GOLDEN_COOKIE_BUFF_COUNT; i++)
+    // UPGRADES
+    for (int upgrade_index = 0; upgrade_index < +UpgradeType::UPGRADE_COUNT; ++upgrade_index)
     {
-        auto buff_type = static_cast<GoldenCookieBuff>(i);
-        bool is_active = std::any_of(
+        const std::size_t index = static_cast<std::size_t>(upgrade_index);
+
+        obs.upgrades_owned[index] = state.upgradesOwned[index];
+
+        obs.upgrades_unlocked[index] = upgradeSystem.isUnlocked(state, upgrade_index);
+
+        obs.can_buy_upgrades[index] = upgradeSystem.canBuy(state, upgrade_index);
+    }
+
+    // ACTIVE BUFFS with REMAININIG DURATIONS
+    for (int buff_index = 0; buff_index < +GoldenCookieBuff::GOLDEN_COOKIE_BUFF_COUNT; ++buff_index)
+    {
+        const GoldenCookieBuff buff_type = static_cast<GoldenCookieBuff>(buff_index);
+
+        const auto active_buff = std::find_if(
             state.activeGoldenCookieBuffs.begin(),
             state.activeGoldenCookieBuffs.end(),
             [buff_type](const ActiveGoldenCookieBuff &buff)
@@ -566,23 +589,28 @@ Observation Env::get_observation()
                 return buff.buff_type == buff_type;
             });
 
-        if (is_active)
+        if (active_buff == state.activeGoldenCookieBuffs.end())
         {
-            obs.activeGoldenCookieBuffs.push_back(buff_type);
+            continue;
         }
+
+        const double seconds_remaining = std::max(0.0, active_buff->expires_at - state.current_simulation_time);
+
+#ifndef NDEBUG
+        assert(std::isfinite(seconds_remaining));
+
+        assert(seconds_remaining >= 0.0);
+#endif
+
+        obs.activeGoldenCookieBuffs.push_back(buff_type);
+
+        obs.activeGoldenCookieBuffSecondsRemaining.push_back(seconds_remaining);
     }
 
-    for (int i = 0; i < +UpgradeType::UPGRADE_COUNT; ++i)
-    {
-        obs.upgrades_owned[static_cast<std::size_t>(i)] =
-            state.upgradesOwned[static_cast<std::size_t>(i)];
+#ifndef NDEBUG
+    assert(obs.activeGoldenCookieBuffs.size() == obs.activeGoldenCookieBuffSecondsRemaining.size());
+#endif
 
-        obs.upgrades_unlocked[static_cast<std::size_t>(i)] =
-            upgradeSystem.isUnlocked(state, i);
-
-        obs.can_buy_upgrades[static_cast<std::size_t>(i)] =
-            upgradeSystem.canBuy(state, i);
-    }
     return obs;
 }
 

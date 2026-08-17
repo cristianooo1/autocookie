@@ -26,13 +26,17 @@ struct Observation
     double current_cookies{0.0};
     double all_time_cookies{0.0};
     double total_cps{0.0};
+
     std::array<int, +BuildingType::BUILDING_COUNT> buildings_owned{};
 
     std::array<bool, +BuildingType::BUILDING_COUNT> can_buy_1{};
     std::array<bool, +BuildingType::BUILDING_COUNT> can_buy_10{};
     std::array<bool, +BuildingType::BUILDING_COUNT> can_buy_100{};
 
+    // these contain the active buffs and their remaining timers
+    // absolute expiration timestamps, future spawn timestamps, future outcomes remain private
     std::vector<GoldenCookieBuff> activeGoldenCookieBuffs{};
+    std::vector<double> activeGoldenCookieBuffSecondsRemaining{};
 
     std::array<bool, +UpgradeType::UPGRADE_COUNT> upgrades_owned{};
     std::array<bool, +UpgradeType::UPGRADE_COUNT> upgrades_unlocked{};
