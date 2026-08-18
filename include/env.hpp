@@ -28,6 +28,9 @@ struct Observation
     double handmade_cookies{0.0};
     double total_cps{0.0};
 
+    double seconds_since_last_golden_cookie{0.0};
+    bool has_seen_golden_cookie{false};
+
     std::array<int, +BuildingType::BUILDING_COUNT> buildings_owned{};
 
     std::array<bool, +BuildingType::BUILDING_COUNT> can_buy_1{};
@@ -42,6 +45,20 @@ struct Observation
     std::array<bool, +UpgradeType::UPGRADE_COUNT> upgrades_owned{};
     std::array<bool, +UpgradeType::UPGRADE_COUNT> upgrades_unlocked{};
     std::array<bool, +UpgradeType::UPGRADE_COUNT> can_buy_upgrades{};
+
+    /*
+    FIXED-SIZE POLICY MASK
+        ADVANCE are always valid
+        PURCHASE actions are valid only when they are unlocked
+    */
+    std::array<bool, discreteActionCount> valid_action_mask{};
+};
+
+enum class EpisodeOutcome
+{
+    Ongoing,
+    Success,
+    HorizonFailure,
 };
 
 struct StepResult
@@ -49,9 +66,15 @@ struct StepResult
     Observation obs{};
     double reward{0.0};
 
+    EpisodeOutcome outcome{EpisodeOutcome::Ongoing};
+
+    bool reached_target{false};
+    bool reached_horizon{false};
+
     bool terminated{false};
     bool truncated{false};
 
+    [[deprecated("Use terminated OR truncated params !!!!!!!!!!!!")]]
     bool done{false};
 };
 
@@ -68,7 +91,7 @@ public:
 
     Observation get_observation();
 
-    double get_reward();
+    // double get_reward();
 
     bool is_terminal();
 
@@ -86,7 +109,7 @@ private:
 
     friend struct EnvTestAccess;
 
-    double prev_reward_time{0.0};
-    double prev_progress_alltime_cookies{0.0};
-    double prev_progress_cps{0.0};
+    // double prev_reward_time{0.0};
+    // double prev_progress_alltime_cookies{0.0};
+    // double prev_progress_cps{0.0};
 };

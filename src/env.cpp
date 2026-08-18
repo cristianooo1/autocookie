@@ -5,6 +5,130 @@
 #include <stdexcept>
 #include <cassert>
 
+namespace
+{
+    struct EpisodeStatus
+    {
+        EpisodeOutcome outcome{EpisodeOutcome::Ongoing};
+        bool reached_target{false};
+        bool reached_horizon{false};
+    };
+
+    EpisodeStatus classifyEpisode(
+        const GameState &state)
+    {
+        const bool reached_target =
+            state.alltime_cookies >=
+            Config::target_cookies;
+
+        const bool reached_horizon =
+            state.current_simulation_time >=
+            Config::episode_length;
+
+        EpisodeOutcome outcome =
+            EpisodeOutcome::Ongoing;
+
+        // Success takes precedence when the target and horizon coincide
+        if (reached_target)
+        {
+            outcome = EpisodeOutcome::Success;
+        }
+        else if (reached_horizon)
+        {
+            outcome = EpisodeOutcome::HorizonFailure;
+        }
+
+        return EpisodeStatus{
+            .outcome = outcome,
+            .reached_target = reached_target,
+            .reached_horizon = reached_horizon,
+        };
+    }
+
+    struct RewardSnapshot
+    {
+        double simulation_time{0.0};
+        double alltime_cookies{0.0};
+        double total_cps{0.0};
+    };
+
+    RewardSnapshot captureRewardSnapshot(
+        const GameState &state)
+    {
+        return RewardSnapshot{
+            .simulation_time =
+                state.current_simulation_time,
+            .alltime_cookies =
+                state.alltime_cookies,
+            .total_cps =
+                state.total_cps,
+        };
+    }
+
+    double progressPotential(
+        const double alltime_cookies)
+    {
+        const double capped_cookies =
+            std::min(
+                alltime_cookies,
+                Config::target_cookies);
+
+        return std::log1p(capped_cookies) /
+               std::log1p(Config::target_cookies);
+    }
+
+    double calculateTransitionReward(
+        const RewardSnapshot &before,
+        const GameState &after,
+        const EpisodeOutcome outcome)
+    {
+        const double delta_time =
+            after.current_simulation_time -
+            before.simulation_time;
+
+        const bool success =
+            outcome == EpisodeOutcome::Success;
+
+        const double base_reward =
+            -delta_time / Config::episode_length +
+            (success ? 1.0 : 0.0);
+
+        double reward = 0.0;
+
+        switch (Config::reward_mode)
+        {
+        case Config::RewardMode::TimeSuccess:
+            reward = base_reward;
+            break;
+
+        case Config::RewardMode::TimeSuccessLogPotential:
+            reward =
+                base_reward +
+                Config::progress_shaping_beta *
+                    (progressPotential(after.alltime_cookies) -
+                     progressPotential(before.alltime_cookies));
+            break;
+
+        case Config::RewardMode::OriginalCookiesPlusCps:
+            reward =
+                (after.alltime_cookies -
+                 before.alltime_cookies) +
+                (after.total_cps -
+                 before.total_cps) *
+                    5.0;
+            break;
+        }
+
+#ifndef NDEBUG
+        assert(std::isfinite(delta_time));
+        assert(delta_time >= 0.0);
+        assert(std::isfinite(reward));
+#endif
+
+        return reward;
+    }
+}
+
 #ifndef NDEBUG
 namespace
 {
@@ -13,6 +137,9 @@ namespace
         assert(std::isfinite(state.current_simulation_time));
         assert(std::isfinite(state.current_cookies));
         assert(std::isfinite(state.alltime_cookies));
+        assert(std::isfinite(state.handmade_cookies));
+        assert(std::isfinite(
+            state.last_golden_cookie_timestamp));
         assert(std::isfinite(state.total_cps));
         assert(std::isfinite(state.cookies_per_click));
 
@@ -20,6 +147,16 @@ namespace
         assert(state.current_simulation_time <= Config::episode_length);
         assert(state.current_cookies >= 0.0);
         assert(state.alltime_cookies >= 0.0);
+        assert(state.handmade_cookies >= 0.0);
+        assert(state.handmade_cookies <= state.alltime_cookies);
+        assert(state.last_golden_cookie_timestamp >= 0.0);
+
+        if (state.has_seen_golden_cookie)
+        {
+            assert(
+                state.last_golden_cookie_timestamp <=
+                state.current_simulation_time);
+        }
         assert(state.current_cookies <= state.alltime_cookies);
         assert(state.total_cps >= 0.0);
         assert(state.cookies_per_click >= 0.0);
@@ -103,23 +240,28 @@ StepResult Env::step(const Action &action)
     assertValidDecisionState(state);
 #endif
 
-    if (is_terminal())
+    const EpisodeStatus initial_status =
+        classifyEpisode(state);
+
+    if (initial_status.outcome !=
+        EpisodeOutcome::Ongoing)
     {
-        const bool terminated =
-            state.alltime_cookies >= Config::target_cookies;
-
-        const bool truncated =
-            state.current_simulation_time >=
-            Config::episode_length;
-
         return StepResult{
             .obs = get_observation(),
             .reward = 0.0,
-            .terminated = terminated,
-            .truncated = truncated,
-            .done = terminated || truncated,
+            .outcome = initial_status.outcome,
+            .reached_target =
+                initial_status.reached_target,
+            .reached_horizon =
+                initial_status.reached_horizon,
+            .terminated = true,
+            .truncated = false,
+            .done = true,
         };
     }
+
+    const RewardSnapshot reward_before =
+        captureRewardSnapshot(state);
 
     /*
     HELPER FUNCTION
@@ -278,6 +420,13 @@ StepResult Env::step(const Action &action)
         }
         if (is_event_here(
                 future_events,
+                WakeUpDecisionEventType::TargetBoundary))
+        {
+            snap_to_target_boundary();
+        }
+
+        if (is_event_here(
+                future_events,
                 WakeUpDecisionEventType::EpisodeBoundary))
         {
             state.current_simulation_time =
@@ -285,20 +434,12 @@ StepResult Env::step(const Action &action)
 
             episode_ended = true;
         }
-        else
-        {
-            if (is_event_here(
-                    future_events,
-                    WakeUpDecisionEventType::TargetBoundary))
-            {
-                snap_to_target_boundary();
-            }
 
-            if (state.alltime_cookies <
+        if (!episode_ended &&
+            state.alltime_cookies <
                 Config::target_cookies)
-            {
-                process_events_at_current_time(future_events);
-            }
+        {
+            process_events_at_current_time(future_events);
         }
     }
     else if (action.type == ActionType::BuyBuilding ||
@@ -396,25 +537,25 @@ StepResult Env::step(const Action &action)
             if (is_internal_timestamp_reached &&
                 is_event_here(
                     future_events,
-                    WakeUpDecisionEventType::EpisodeBoundary))
-            {
-
-                state.current_simulation_time =
-                    Config::episode_length;
-
-                episode_ended = true;
-                break;
-            }
-
-            if (is_internal_timestamp_reached &&
-                is_event_here(
-                    future_events,
                     WakeUpDecisionEventType::TargetBoundary))
             {
                 snap_to_target_boundary();
             }
 
-            if (state.alltime_cookies >= Config::target_cookies)
+            if (is_internal_timestamp_reached &&
+                is_event_here(
+                    future_events,
+                    WakeUpDecisionEventType::EpisodeBoundary))
+            {
+                state.current_simulation_time =
+                    Config::episode_length;
+
+                episode_ended = true;
+            }
+
+            if (state.alltime_cookies >=
+                    Config::target_cookies ||
+                episode_ended)
             {
                 break;
             }
@@ -496,18 +637,27 @@ StepResult Env::step(const Action &action)
             true));
 #endif
 
-    bool terminated =
-        state.alltime_cookies >= Config::target_cookies;
+    const EpisodeStatus status =
+        classifyEpisode(state);
 
-    bool truncated =
-        state.current_simulation_time >=
-        Config::episode_length;
+    const double reward =
+        calculateTransitionReward(
+            reward_before,
+            state,
+            status.outcome);
 
-    double reward = get_reward();
+    const bool terminated =
+        status.outcome !=
+        EpisodeOutcome::Ongoing;
+
+    constexpr bool truncated{false};
 
     return StepResult{
         .obs = get_observation(),
         .reward = reward,
+        .outcome = status.outcome,
+        .reached_target = status.reached_target,
+        .reached_horizon = status.reached_horizon,
         .terminated = terminated,
         .truncated = truncated,
         .done = terminated || truncated,
@@ -530,12 +680,6 @@ Observation Env::reset(std::optional<unsigned int> seed)
     eventSystem.generateNextGoldenCookieSpawn(state);
 
     state.total_cps = economySystem.calculateEffectiveCPS(state, true);
-
-    this->prev_reward_time = state.current_simulation_time;
-
-    this->prev_progress_alltime_cookies = state.alltime_cookies;
-
-    this->prev_progress_cps = state.total_cps;
 
 #ifndef NDEBUG
     assertValidDecisionState(state);
@@ -571,6 +715,28 @@ Observation Env::get_observation()
 
     obs.total_cps = economySystem.calculateEffectiveCPS(state, true);
 
+    obs.has_seen_golden_cookie =
+        state.has_seen_golden_cookie;
+
+    obs.seconds_since_last_golden_cookie =
+        state.has_seen_golden_cookie
+            ? std::max(
+                  0.0,
+                  state.current_simulation_time -
+                      state.last_golden_cookie_timestamp)
+            : state.current_simulation_time;
+
+    const bool episode_ongoing =
+        state.alltime_cookies < Config::target_cookies &&
+        state.current_simulation_time <
+            Config::episode_length;
+
+    if (episode_ongoing)
+    {
+
+        obs.valid_action_mask[0] = true;
+    }
+
     obs.buildings_owned = state.buildingsOwned;
 
     // BUILDING affordability
@@ -583,6 +749,23 @@ Observation Env::get_observation()
         obs.can_buy_10[index] = buildingSystem.canBuy(state, building_index, 10);
 
         obs.can_buy_100[index] = buildingSystem.canBuy(state, building_index, 100);
+
+        if (episode_ongoing)
+        {
+            const int first_action =
+                1 +
+                building_index *
+                    purchaseQuantityCount;
+
+            obs.valid_action_mask[static_cast<std::size_t>(
+                first_action)] = obs.can_buy_1[index];
+
+            obs.valid_action_mask[static_cast<std::size_t>(
+                first_action + 1)] = obs.can_buy_10[index];
+
+            obs.valid_action_mask[static_cast<std::size_t>(
+                first_action + 2)] = obs.can_buy_100[index];
+        }
     }
 
     // UPGRADES
@@ -595,6 +778,14 @@ Observation Env::get_observation()
         obs.upgrades_unlocked[index] = upgradeSystem.isUnlocked(state, upgrade_index);
 
         obs.can_buy_upgrades[index] = upgradeSystem.canBuy(state, upgrade_index);
+
+        if (episode_ongoing)
+        {
+            obs.valid_action_mask[static_cast<std::size_t>(
+                upgradeActionOffset +
+                upgrade_index)] =
+                obs.can_buy_upgrades[index];
+        }
     }
 
     // ACTIVE BUFFS with REMAININIG DURATIONS
@@ -629,93 +820,21 @@ Observation Env::get_observation()
     }
 
 #ifndef NDEBUG
+    assert(std::isfinite(
+        obs.seconds_since_last_golden_cookie));
+    assert(
+        obs.seconds_since_last_golden_cookie >= 0.0);
+
     assert(obs.activeGoldenCookieBuffs.size() == obs.activeGoldenCookieBuffSecondsRemaining.size());
 #endif
 
     return obs;
 }
 
-double Env::get_reward()
-{
-    const double current_cps =
-        economySystem.calculateEffectiveCPS(state, true);
-
-    const double delta_t =
-        state.current_simulation_time -
-        prev_reward_time;
-
-    const bool success =
-        state.alltime_cookies >= Config::target_cookies;
-
-    const double base_reward =
-        -delta_t / Config::episode_length +
-        (success ? 1.0 : 0.0);
-
-    auto progress_potential =
-        [](const double alltime_cookies)
-    {
-        const double capped_cookies =
-            std::min(
-                alltime_cookies,
-                Config::target_cookies);
-
-        return std::log1p(capped_cookies) /
-               std::log1p(Config::target_cookies);
-    };
-
-    double reward = 0.0;
-
-    switch (Config::reward_mode)
-    {
-    case Config::RewardMode::TimeSuccess:
-        reward = base_reward;
-        break;
-
-    case Config::RewardMode::TimeSuccessLogPotential:
-        reward =
-            base_reward +
-            Config::progress_shaping_beta *
-                (progress_potential(state.alltime_cookies) -
-                 progress_potential(
-                     prev_progress_alltime_cookies));
-        break;
-
-    case Config::RewardMode::OriginalCookiesPlusCps:
-        reward =
-            (state.alltime_cookies -
-             prev_progress_alltime_cookies) +
-            (current_cps - prev_progress_cps) * 5.0;
-        break;
-    }
-
-#ifndef NDEBUG
-    assert(std::isfinite(delta_t));
-    assert(delta_t >= 0.0);
-    assert(std::isfinite(current_cps));
-    assert(std::isfinite(reward));
-#endif
-
-    prev_reward_time =
-        state.current_simulation_time;
-
-    prev_progress_alltime_cookies =
-        state.alltime_cookies;
-
-    prev_progress_cps = current_cps;
-
-    return reward;
-}
-
 bool Env::is_terminal()
 {
-    const bool terminated =
-        state.alltime_cookies >= Config::target_cookies;
-
-    const bool truncated =
-        state.current_simulation_time >=
-        Config::episode_length;
-
-    return terminated || truncated;
+    return classifyEpisode(state).outcome !=
+           EpisodeOutcome::Ongoing;
 }
 
 std::tuple<double, double, double, double, int, int, int> Env::queryState()

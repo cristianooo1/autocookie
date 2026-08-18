@@ -198,6 +198,9 @@ void EventSystem::processGoldenCookieBuff(GameState &state, const double rate)
     assert(rate >= 0.0);
 #endif
 
+    state.last_golden_cookie_timestamp = state.current_simulation_time;
+    state.has_seen_golden_cookie = true;
+
     // roll the buff
     GoldenCookieBuff buff = this->rollGoldenCookieBuff();
 

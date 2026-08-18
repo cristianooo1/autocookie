@@ -14,9 +14,14 @@ struct GameState
 
     double current_cookies{0.0};
     double alltime_cookies{0.0};
+    double handmade_cookies{0.0};
+
     double total_cps{0.0};
     double cookies_per_click{1.0};
-    double handmade_cookies{0.0};
+
+    // FUTURE SPAWN TIMESTAMP IS STILL HIDDEN FROM THE AGENT
+    double last_golden_cookie_timestamp{0.0};
+    bool has_seen_golden_cookie{false};
 
     /*
     0 -> Cursor
