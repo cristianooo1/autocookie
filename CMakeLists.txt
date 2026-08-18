@@ -89,6 +89,9 @@ set(CORE_SOURCES
 
 # CORE
 add_library(${PROJECT_NAME}_core STATIC ${CORE_SOURCES})
+set_target_properties(${PROJECT_NAME}_core PROPERTIES
+    POSITION_INDEPENDENT_CODE ON
+)
 target_include_directories(${PROJECT_NAME}_core PUBLIC include)
 target_link_libraries(${PROJECT_NAME}_core PUBLIC imgui glfw OpenGL::GL)
 
@@ -117,19 +120,19 @@ if(BUILD_TESTING)
 endif()
 
 # NANOBIND
-# nanobind_add_module(${PROJECT_NAME} src/bindings.cpp)
-# target_link_libraries(${PROJECT_NAME} PRIVATE ${PROJECT_NAME}_core)
-# set_target_properties(${PROJECT_NAME} PROPERTIES 
-#     LIBRARY_OUTPUT_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
-# )
-# nanobind_add_stub(
-#     ${PROJECT_NAME}_stub
-#     MODULE ${PROJECT_NAME}
-#     OUTPUT ${CMAKE_CURRENT_SOURCE_DIR}/${PROJECT_NAME}.pyi
-#     PYTHON_PATH ${CMAKE_CURRENT_SOURCE_DIR}
-#     DEPENDS ${PROJECT_NAME}
-# )
-# add_custom_target(generate_stubs ALL DEPENDS ${PROJECT_NAME}_stub)
+nanobind_add_module(${PROJECT_NAME} src/bindings.cpp)
+target_link_libraries(${PROJECT_NAME} PRIVATE ${PROJECT_NAME}_core)
+set_target_properties(${PROJECT_NAME} PROPERTIES 
+    LIBRARY_OUTPUT_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+)
+nanobind_add_stub(
+    ${PROJECT_NAME}_stub
+    MODULE ${PROJECT_NAME}
+    OUTPUT ${CMAKE_CURRENT_SOURCE_DIR}/${PROJECT_NAME}.pyi
+    PYTHON_PATH ${CMAKE_CURRENT_SOURCE_DIR}
+    DEPENDS ${PROJECT_NAME}
+)
+add_custom_target(generate_stubs ALL DEPENDS ${PROJECT_NAME}_stub)
 
 # Switch from DEBUG to RELEASE !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 # if(NOT MSVC AND CMAKE_BUILD_TYPE STREQUAL "Release")

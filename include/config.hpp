@@ -25,7 +25,7 @@ namespace Config
     // MODIFY THIS TO CHANGE REWARD MODE !!!!!!!!!!!!!!!!
     constexpr RewardMode reward_mode{RewardMode::TimeSuccessLogPotential};
 
-    constexpr double episode_length{50000.0};
+    constexpr double episode_length{10000.0};
     constexpr double target_cookies{1000000.0};
 
     constexpr double progress_shaping_beta{0.1};
