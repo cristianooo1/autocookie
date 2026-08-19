@@ -6,3 +6,7 @@ build/
 __pycache__
 
 gpu_test.py
+
+cookie_logs/
+
+tests/

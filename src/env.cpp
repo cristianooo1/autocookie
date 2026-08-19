@@ -256,7 +256,7 @@ StepResult Env::step(const Action &action)
                 initial_status.reached_horizon,
             .terminated = true,
             .truncated = false,
-            .done = true,
+            // .done = true,
         };
     }
 
@@ -660,7 +660,7 @@ StepResult Env::step(const Action &action)
         .reached_horizon = status.reached_horizon,
         .terminated = terminated,
         .truncated = truncated,
-        .done = terminated || truncated,
+        // .done = terminated || truncated,
     };
 }
 

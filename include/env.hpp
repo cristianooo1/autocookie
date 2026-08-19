@@ -74,8 +74,8 @@ struct StepResult
     bool terminated{false};
     bool truncated{false};
 
-    [[deprecated("Use terminated OR truncated params !!!!!!!!!!!!")]]
-    bool done{false};
+    // [[deprecated("Use terminated OR truncated params !!!!!!!!!!!!")]]
+    // bool done{false};
 };
 
 struct EnvTestAccess;

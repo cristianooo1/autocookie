@@ -80,6 +80,13 @@ NB_MODULE(autocookie, m)
             "OriginalCookiesPlusCps",
             Config::RewardMode::OriginalCookiesPlusCps);
 
+    nb::enum_<EpisodeOutcome>(m, "EpisodeOutcome")
+        .value("Ongoing", EpisodeOutcome::Ongoing)
+        .value("Success", EpisodeOutcome::Success)
+        .value(
+            "HorizonFailure",
+            EpisodeOutcome::HorizonFailure);
+
     nb::class_<Action>(m, "Action")
         .def(nb::init<>())
         .def_rw("type", &Action::type)
@@ -101,27 +108,45 @@ NB_MODULE(autocookie, m)
             &UpgradeDefinition::requiredBuildingCount);
 
     nb::class_<Observation>(m, "Observation")
-        .def_ro("current_simulation_time", &Observation::current_simulation_time)
+        .def_ro(
+            "current_simulation_time",
+            &Observation::current_simulation_time)
         .def_ro("current_cookies", &Observation::current_cookies)
         .def_ro("all_time_cookies", &Observation::all_time_cookies)
         .def_ro("handmade_cookies", &Observation::handmade_cookies)
         .def_ro("total_cps", &Observation::total_cps)
+        .def_ro(
+            "has_seen_golden_cookie",
+            &Observation::has_seen_golden_cookie)
+        .def_ro(
+            "seconds_since_last_golden_cookie",
+            &Observation::seconds_since_last_golden_cookie)
         .def_ro("buildings_owned", &Observation::buildings_owned)
         .def_ro("can_buy_1", &Observation::can_buy_1)
         .def_ro("can_buy_10", &Observation::can_buy_10)
         .def_ro("can_buy_100", &Observation::can_buy_100)
-        .def_ro("active_golden_cookie_buffs", &Observation::activeGoldenCookieBuffs)
-        .def_ro("active_golden_cookie_buff_seconds_remaining", &Observation::activeGoldenCookieBuffSecondsRemaining)
+        .def_ro(
+            "active_golden_cookie_buffs",
+            &Observation::activeGoldenCookieBuffs)
+        .def_ro(
+            "active_golden_cookie_buff_seconds_remaining",
+            &Observation::activeGoldenCookieBuffSecondsRemaining)
         .def_ro("upgrades_owned", &Observation::upgrades_owned)
         .def_ro("upgrades_unlocked", &Observation::upgrades_unlocked)
-        .def_ro("can_buy_upgrades", &Observation::can_buy_upgrades);
+        .def_ro("can_buy_upgrades", &Observation::can_buy_upgrades)
+        .def_ro(
+            "valid_action_mask",
+            &Observation::valid_action_mask);
 
     nb::class_<StepResult>(m, "StepResult")
         .def_ro("obs", &StepResult::obs)
         .def_ro("reward", &StepResult::reward)
+        .def_ro("outcome", &StepResult::outcome)
+        .def_ro("reached_target", &StepResult::reached_target)
+        .def_ro("reached_horizon", &StepResult::reached_horizon)
         .def_ro("terminated", &StepResult::terminated)
-        .def_ro("truncated", &StepResult::truncated)
-        .def_ro("done", &StepResult::done);
+        .def_ro("truncated", &StepResult::truncated);
+    // .def_ro("done", &StepResult::done);
 
     nb::class_<Env>(m, "Env")
         .def(nb::init<>())
@@ -145,9 +170,13 @@ NB_MODULE(autocookie, m)
             &Env::step,
             "action"_a)
         .def("get_observation", &Env::get_observation)
+        .def("get_episode_seed", &Env::getEpisodeSeed)
         .def("is_terminal", &Env::is_terminal);
 
-    m.def("action_from_discrete_index", &actionFromDiscreteIndex, "action_index"_a);
+    m.def(
+        "action_from_discrete_index",
+        &actionFromDiscreteIndex,
+        "action_index"_a);
 
     m.attr("DISCRETE_ACTION_COUNT") = discreteActionCount;
     m.attr("BUILDING_COUNT") = +BuildingType::BUILDING_COUNT;
@@ -158,9 +187,12 @@ NB_MODULE(autocookie, m)
     m.attr("TARGET_COOKIES") = Config::target_cookies;
     m.attr("BUYING_TIME_COST") = Config::buying_time_cost;
     m.attr("CLICKING_FREQUENCY") = Config::clicking_frequency;
-    m.attr("PROGRESS_SHAPING_BETA") = Config::progress_shaping_beta;
+    m.attr("PROGRESS_SHAPING_BETA") =
+        Config::progress_shaping_beta;
     m.attr("REWARD_MODE") = nb::cast(Config::reward_mode);
 
-    m.attr("BUILDING_DEFINITIONS") = nb::cast(buildingsDefinitions);
-    m.attr("UPGRADE_DEFINITIONS") = nb::cast(upgradeDefinitions);
+    m.attr("BUILDING_DEFINITIONS") =
+        nb::cast(buildingsDefinitions);
+    m.attr("UPGRADE_DEFINITIONS") =
+        nb::cast(upgradeDefinitions);
 }
