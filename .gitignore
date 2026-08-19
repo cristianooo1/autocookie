@@ -5,8 +5,16 @@ build/
 *.so
 __pycache__
 
-gpu_test.py
+.env
 
-cookie_logs/
+context.md
+
+cookie_logs_old/
+
+python_scripts/
 
 tests/
+
+monitor/
+
+wandb/
